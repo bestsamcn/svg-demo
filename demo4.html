@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+<title>demo4</title>
+<meta name="description" content="">
+<meta name="keywords" content="">
+<link href="" rel="stylesheet">
+</head>
+<body>
+    <div style="width:600px; height:600px;border:1px solid #333">
+    	<svg width="600" height="600" id="svg" style="position:absolute; left:0px; top:0px;">
+    		<g></g>
+    	</svg>
+    </div>
+</body>
+</html>
+<script>
+	let svg = document.querySelector('#svg');
+	let svgg = svg.querySelector('g');
+	class createSVG{
+		constructor(tag, attrs){
+			this.tag = document.createElementNS('http://www.w3.org/2000/svg', tag);
+			this.attrs = attrs;
+			this.setAttrs(attrs);
+		}
+
+		/**
+		 * 设置属性
+		 * @param {String} name 属性名
+		 * @param {String} value 属性值
+		 */
+		setAttr(name, value){
+			this.tag[name] = value;
+		}
+		/**
+		 * 设置属性对象
+		 * @param {Object} attrs 属性名
+		 */
+		setAttrs(attrs){
+			for(let attr in attrs){
+				if(attr == 'points'){
+					this.tag.setAttribute(attr, attrs[attr].join(' '));	
+					continue;
+				}
+				this.tag.setAttribute(attr, attrs[attr]);
+	        }
+		}
+        
+	}
+	let rectobj = null;
+	let attrs = {
+		style:"fill:none;stroke:red;stroke-width:2",
+		d:''
+	};
+	let reg = /(\d+,\s*-?\d+).*\(-?\d+\)/ig;
+	let onmousedown = e=>{
+		let x = e.offsetX;
+		let y = e.offsetY;
+		attrs.d = `M${x} ${y}`;
+		rectobj = new createSVG('path', attrs);
+		svgg.appendChild(rectobj.tag);
+		svg.addEventListener('mousemove', onmousemove);
+		svg.addEventListener('mouseup', onmouseup);
+
+	}
+
+	let onmousemove = e=>{
+		let x = e.offsetX;
+		let y = e.offsetY;
+		attrs.d += attrs.d.includes('L') ? ` ${x} ${y}` : ` L${x} ${y}`;
+		rectobj.setAttrs(attrs)
+	}
+
+	let onmouseup = ()=>{
+		svg.removeEventListener('mousemove', onmousemove);
+		svg.removeEventListener('mouseup', onmouseup);
+	}
+	svg.addEventListener('mousedown', onmousedown);
+</script>
