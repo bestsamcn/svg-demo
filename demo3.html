@@ -57,7 +57,9 @@
 		transform:'translate(0, 0)',
 		stroke:"black",
 		'stroke-width':2,
-		fill:'red'
+		fill:'red',
+		originx:0,
+		originy:0
 	};
 	let reg = /(\d+,\s*-?\d+).*\(-?\d+\)/ig;
 	let onmousedown = e=>{
@@ -65,6 +67,8 @@
 		let y = e.offsetY;
 		attrs.cx = x;
 		attrs.cy = y;
+		attrs.originx = x;
+		attrs.originy = y;
 		rectobj = new createSVG('circle', attrs);
 		svgg.appendChild(rectobj.tag);
 		svg.addEventListener('mousemove', onmousemove);
@@ -75,19 +79,23 @@
 	let onmousemove = e=>{
 		let x = e.offsetX;
 		let y = e.offsetY;
-		let absx = Math.abs(x-attrs.cx);
-		let absy = Math.abs(y-attrs.cy)
+		let absx = x-attrs.originx;
+		let absy = y-attrs.originy;
+		attrs.cx = attrs.originx + absx/2;
+		attrs.cy = attrs.originy + absy/2;
+		
 
-		//左右
-		if(absx > absy){
-			attrs.r = absx;
-			// attrs.transform = `translate(${x-attrs.cx}, 0)`;
-
-		//上下
+		//右边
+		if(absx >= absy){
+			attrs.r = absx/2;
+		//左边
 		}else{
-			attrs.r = absy;
-			// attrs.transform = `translate(0, ${y-attrs.cy})`;
+			attrs.r = absy/2;
 		}
+		// attrs.transform = `translate(${absx/4}, ${absy/4})`
+			
+
+		
 		// attrs.cx = x+attrs.r;
 		// attrs.cy = y+attrs.r;
 		
