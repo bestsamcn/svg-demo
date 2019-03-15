@@ -79,25 +79,87 @@
 	let onmousemove = e=>{
 		let x = e.offsetX;
 		let y = e.offsetY;
-		let absx = x-attrs.originx;
-		let absy = y-attrs.originy;
-		attrs.cx = attrs.originx + absx/2;
-		attrs.cy = attrs.originy + absy/2;
-		
+
+
+		/*
+				y1 > y0
+				|
+				|  
+				|
+    	--------|--------- x1 > x0
+				|  
+				|
+				|
+		*/
+	
+		let abs = 0;
+		let absx = 0;
+		let absy = 0;
 
 		//右边
-		if(absx >= absy){
-			attrs.r = absx/2;
-		//左边
-		}else{
-			attrs.r = absy/2;
-		}
-		// attrs.transform = `translate(${absx/4}, ${absy/4})`
+		if(x > attrs.originx){
+			absx = x-attrs.originx;
 			
+			absx = Math.abs(absx);
 
+
+			//下边
+			if(y > attrs.originy){
+				absy = y-attrs.originy;
+				absy = Math.abs(absy);
+				abs = Math.max(absx, absy);
+				attrs.cx = attrs.originx + abs/2;
+				attrs.cy = attrs.originy + abs/2;
+				attrs.r = abs/2;
+
+			//上边
+			}else{
+
+				absy = y-attrs.originy;
+				absy = Math.abs(absy);
+				abs = Math.max(absx, absy);
+				attrs.cx = attrs.originx + abs/2;
+				attrs.cy = attrs.originy - abs/2;
+				attrs.r = abs/2;
+
+			}
+		}
+
+		//左边
+		if(x < attrs.originx){
+			absx = x-attrs.originx;
+			absx = Math.abs(absx);
+
+			//下边
+			if(y > attrs.originy){
+				absy = y-attrs.originy;
+				absy = Math.abs(absy);
+				abs = Math.max(absx, absy);
+				attrs.cx = attrs.originx - abs/2;
+				attrs.cy = attrs.originy + abs/2;
+				attrs.r = abs/2;
+
+			//上边
+			}else{
+				absy = y-attrs.originy;
+				absy = Math.abs(absy);
+				abs = Math.max(absx, absy);
+				console.log()
+				attrs.cx = attrs.originx - abs/2;
+				attrs.cy = attrs.originy - abs/2;
+				attrs.r = abs/2;
+
+			}
+		}
+	
 		
-		// attrs.cx = x+attrs.r;
-		// attrs.cy = y+attrs.r;
+		// let absx = Math.abs(x-attrs.originx);
+		// let absy = Math.abs(y-attrs.originy);
+		// let abs = Math.max(absx, absy);
+		// attrs.cx = attrs.originx + abs/2;
+		// attrs.cy = attrs.originy + abs/2;
+		// attrs.r = abs/2;
+		
 		
 		rectobj.setAttrs(attrs)
 	}
