@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+<title>demo5-ellipse</title>
+<meta name="description" content="">
+<meta name="keywords" content="">
+<link href="" rel="stylesheet">
+</head>
+<body>
+    <div style="width:600px; height:600px;border:1px solid #333">
+    	<svg width="600" height="600" id="svg" style="position:absolute; left:0px; top:0px;">
+    		<g></g>
+    	</svg>
+    </div>
+</body>
+</html>
+<script>
+	let svg = document.querySelector('#svg');
+	let svgg = svg.querySelector('g');
+	class createSVG{
+		constructor(tag, attrs){
+			this.tag = document.createElementNS('http://www.w3.org/2000/svg', tag);
+			this.attrs = attrs;
+			this.setAttrs(attrs);
+		}
+
+		/**
+		 * 设置属性
+		 * @param {String} name 属性名
+		 * @param {String} value 属性值
+		 */
+		setAttr(name, value){
+			this.tag[name] = value;
+		}
+		/**
+		 * 设置属性对象
+		 * @param {Object} attrs 属性名
+		 */
+		setAttrs(attrs){
+			for(let attr in attrs){
+				if(attr == 'points'){
+					this.tag.setAttribute(attr, attrs[attr].join(' '));	
+					continue;
+				}
+				this.tag.setAttribute(attr, attrs[attr]);
+	        }
+		}
+        
+	}
+	let rectobj = null;
+	let attrs = {
+		cx:0,
+		cy:0,
+		rx:0,
+		ry:0,
+		transform:'translate(0, 0)',
+		stroke:"black",
+		'stroke-width':2,
+		fill:'red',
+		originx:0,
+		originy:0
+	};
+	let reg = /(\d+,\s*-?\d+).*\(-?\d+\)/ig;
+	let onmousedown = e=>{
+		let x = e.offsetX;
+		let y = e.offsetY;
+		attrs.cx = x;
+		attrs.cy = y;
+		attrs.originx = x;
+		attrs.originy = y;
+		rectobj = new createSVG('ellipse', attrs);
+		svgg.appendChild(rectobj.tag);
+		svg.addEventListener('mousemove', onmousemove);
+		svg.addEventListener('mouseup', onmouseup);
+
+	}
+	
+
+	let onmousemove = e=>{
+		let x = e.offsetX;
+		let y = e.offsetY;
+
+
+		/*
+				y1 > y0
+				|
+				|  
+				|
+    	--------|--------- x1 > x0
+				|  
+				|
+				|
+		*/
+	
+		let absx = 0;
+		let absy = 0;
+
+		//右边
+		if(x > attrs.originx){
+			absx = x-attrs.originx;
+			absx = Math.abs(absx);
+
+
+			//下边
+			if(y > attrs.originy){
+				absy = y-attrs.originy;
+				absy = Math.abs(absy);
+				attrs.cx = attrs.originx + absx/2;
+				attrs.cy = attrs.originy + absy/2;
+				attrs.rx = absx/2;
+				attrs.ry = absy/2;
+
+			//上边
+			}else{
+				absy = y-attrs.originy;
+				absy = Math.abs(absy);
+				abs = Math.max(absx, absy);
+				attrs.cx = attrs.originx + absx/2;
+				attrs.cy = attrs.originy - absy/2;
+				attrs.rx = absx/2;
+				attrs.ry = absy/2;
+
+			}
+		}
+
+		//左边
+		if(x < attrs.originx){
+			absx = x-attrs.originx;
+			absx = Math.abs(absx);
+
+			//下边
+			if(y > attrs.originy){
+				absy = y-attrs.originy;
+				absy = Math.abs(absy);
+				attrs.cx = attrs.originx - absx/2;
+				attrs.cy = attrs.originy + absy/2;
+				attrs.rx = absx/2;
+				attrs.ry = absy/2;
+
+			//上边
+			}else{
+				absy = y-attrs.originy;
+				absy = Math.abs(absy);
+				attrs.cx = attrs.originx - absx/2;
+				attrs.cy = attrs.originy - absy/2;
+				attrs.rx = absx/2;
+				attrs.ry = absy/2;
+
+			}
+		}
+		
+		
+		// let absx = Math.abs(x-attrs.originx);
+		// let absy = Math.abs(y-attrs.originy);
+		// let abs = Math.max(absx, absy);
+		// attrs.cx = attrs.originx + abs/2;
+		// attrs.cy = attrs.originy + abs/2;
+		// attrs.r = abs/2;
+		rectobj.setAttrs(attrs)
+	}
+
+	let onmouseup = ()=>{
+		svg.removeEventListener('mousemove', onmousemove);
+		svg.removeEventListener('mouseup', onmouseup);
+	}
+	svg.addEventListener('mousedown', onmousedown);
+</script>
