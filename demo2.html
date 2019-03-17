@@ -7,10 +7,16 @@
 <meta name="description" content="">
 <meta name="keywords" content="">
 <link href="" rel="stylesheet">
+<style>
+	.svg line:hover , .svg path:hover, .svg polygon:hover, .svg rect:hover, .svg circle:hover, .svg ellipse:hover{
+		fill:yellow !important;
+		stroke:yellow !important;
+	}
+</style>
 </head>
 <body>
-    <div style="width:600px; height:600px;border:1px solid #333">
-    	<svg width="600" height="600" id="svg" style="position:absolute; left:0px; top:0px;">
+    <div class="svg" style="width:600px; height:600px;border:1px solid #333">
+    	<svg pointer-events="painted" width="600" height="600" id="svg" style="position:absolute; left:0px; top:0px;">
     		<g></g>
 
     		<!-- 引用箭头 -->
@@ -20,6 +26,7 @@
 	    		</marker>
     		</defs>
     	</svg>
+    	<div style="width:600px; height:600px;"></div>
     </div>
 </body>
 </html>
@@ -79,6 +86,7 @@
 	}
 
 	let onmousemove = e=>{
+		console.log('onmousemove')
 		let x = e.offsetX;
 		let y = e.offsetY;
 		attrs.x2 = x;

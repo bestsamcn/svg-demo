@@ -7,9 +7,17 @@
 <meta name="description" content="">
 <meta name="keywords" content="">
 <link href="" rel="stylesheet">
+<style>
+	/*.svg line, .svg path, .svg polygon, .svg rect, .svg circle,.svg ellipse{
+    	pointer-events: all;
+	}*/
+	.svg line:hover , .svg path:hover, .svg polygon:hover, .svg rect:hover, .svg circle:hover, .svg ellipse:hover{
+		fill:yellow !important;
+	}
+</style>
 </head>
 <body>
-    <div style="width:600px; height:600px;border:1px solid #333">
+    <div class="svg" style="width:600px; height:600px;border:1px solid #333">
     	<svg width="600" height="600" id="svg" style="position:absolute; left:0px; top:0px;">
     		<g></g>
     	</svg>

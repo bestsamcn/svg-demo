@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+<title>demo8-polygonArrayLine</title>
+<meta name="description" content="">
+<script src="./gl-martrix.js"></script>
+<script>
+	vec2.rotate = (out, a, b, c)=>{
+	  //Translate point to the origin
+	  let p0 = a[0] - b[0],
+	  p1 = a[1] - b[1],
+	  sinC = Math.sin(c),
+	  cosC = Math.cos(c);
+	  
+	  //perform rotation and translate to correct position
+	  out[0] = p0*cosC - p1*sinC + b[0];
+	  out[1] = p0*sinC + p1*cosC + b[1];
+	  return out;
+	}
+</script>
+<meta name="keywords" content="">
+<link href="" rel="stylesheet">
+<style>
+	/*.svg line:hover , .svg path:hover, .svg polygon:hover, .svg rect:hover, .svg circle:hover, .svg ellipse:hover{
+		fill:yellow !important;
+		stroke:yellow !important;
+	}*/
+</style>
+</head>
+<body>
+    <div class="svg" style="width:600px; height:600px;border:1px solid #333">
+    	<svg pointer-events="painted" width="600" height="600" id="svg" style="position:absolute; left:0px; top:0px;">
+    		<g id="ggg"></g>
+
+    	</svg>
+    </div>
+</body>
+</html>
+<script>
+	let svg = document.querySelector('#svg');
+	let svgg = svg.querySelector('g');
+	class createSVG{
+		constructor(tag, attrs){
+			this.tag = document.createElementNS('http://www.w3.org/2000/svg', tag);
+			this.attrs = attrs;
+			this.setAttrs(attrs);
+		}
+
+		/**
+		 * 设置属性
+		 * @param {String} name 属性名
+		 * @param {String} value 属性值
+		 */
+		setAttr(name, value){
+			this.tag[name] = value;
+		}
+		/**
+		 * 设置属性对象
+		 * @param {Object} attrs 属性名
+		 */
+		setAttrs(attrs){
+			for(let attr in attrs){
+				if(attr == 'points'){
+					this.tag.setAttribute(attr, attrs[attr].join(' ').toString());	
+					continue;
+				}
+				if(attr == 'worldTranslate' || attr == 'arrowTranslate' || 'arrowRoate'){
+					let _attrs = `translate(${attrs.worldTranslate.toString()}) translate(${attrs.arrowTranslate.toString()}) rotate(${attrs.arrowRoate})`;
+					this.tag.setAttribute('transform', _attrs);
+					continue;
+				}
+				this.tag.setAttribute(attr, attrs[attr]);
+	        }
+		}
+        
+	}
+	// 0,3 4,3 4,0 16,6 4,12 4,9 0,9
+	/*        	  A	 
+			  	  | C 
+			  		|
+	O----------------|-----X			  		
+			  		|
+			  	  | D
+	          	  B	
+	*/
+	let rectobj = null;
+	let initY = 10;
+	let initX = 16;
+	let initH = 20;
+	let cornABX = 12;
+	let cornCDX = 10;
+	let PO1 = [0, initY-1];
+	let PO2 = [0, initY+1];
+	let PX = [initX, initY];
+	let PA = [initX-12, 0];
+	let PB = [initX-12, initH];
+	let PC = [initX-10, 7];
+	let PD = [initX-10, initH-7];
+	let attrs = {
+		style:"stroke:rgb(99,99,99);",
+		points:[PO1, PC, PA, PX, PB, PD, PO2],
+		// points:[[0, 9], [16, 7], [4,0], [16, 10], [4,20], [16, 20-7], [0, 11]],
+		worldTranslate:[0, 0],
+		arrowTranslate:[0, 0],
+		arrowRoate:360,
+		x:0,
+		y:0,
+	};
+	let reg = /(\d+,\s*-?\d+).*\(-?\d+\)/ig;
+	let onmousedown = e=>{
+		attrs.x = e.offsetX;
+		attrs.y = e.offsetY;
+		attrs.worldTranslate = [attrs.x, attrs.y]
+		rectobj = new createSVG('polygon', attrs);
+		svgg.appendChild(rectobj.tag);
+		svg.addEventListener('mousemove', onmousemove);
+		svg.addEventListener('mouseup', onmouseup);
+
+	}
+          
+
+	
+	let onmousemove = e=>{
+		let x = e.offsetX - attrs.x;
+		let y = e.offsetY- attrs.y;
+
+		if(x < initX) return;
+		let newX = Math.sqrt(Math.pow(x, 2) + Math.pow(y, 2));
+		attrs.points[3][0] = newX;
+		attrs.points[1][0] = newX-cornCDX;
+		attrs.points[2][0] = newX-cornABX;
+		attrs.points[4][0] = newX-cornABX;
+		attrs.points[5][0] = newX-cornCDX;
+		let newRotate = 180*Math.acos(x/newX)/Math.PI;
+		if(newRotate == 0) newRotate = 360;
+		attrs.arrowRoate = newRotate;
+		rectobj.setAttrs(attrs);
+	}
+
+	let onmouseup = ()=>{
+		attrs = {
+			style:"stroke:rgb(99,99,99);",
+			// points:[[0, 9], [16, 7], [4,0], [16, 10], [4,20], [16, 20-7], [0, 11]],
+			points:[PO1, PC, PA, PX, PB, PD, PO2],
+			worldTranslate:[0, 0],
+			arrowTranslate:[0, 0],
+			arrowRoate:360,
+			x:0,
+			y:0,
+		};
+		svg.removeEventListener('mousemove', onmousemove);
+		svg.removeEventListener('mouseup', onmouseup);
+	}
+	svg.addEventListener('mousedown', onmousedown);
+</script>
