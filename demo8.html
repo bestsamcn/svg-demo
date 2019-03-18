@@ -19,6 +19,36 @@
 	  out[1] = p0*sinC + p1*cosC + b[1];
 	  return out;
 	}
+	vec2.angle = (a, b)=>{
+	  let x1 = a[0],
+	    y1 = a[1],
+	    x2 = b[0],
+	    y2 = b[1];
+	  
+	  let len1 = x1*x1 + y1*y1;
+	  if (len1 > 0) {
+	    //TODO: evaluate use of glm_invsqrt here?
+	    len1 = 1 / Math.sqrt(len1);
+	  }
+	  
+	  let len2 = x2*x2 + y2*y2;
+	  if (len2 > 0) {
+	    //TODO: evaluate use of glm_invsqrt here?
+	    len2 = 1 / Math.sqrt(len2);
+	  }
+	  
+	  let cosine = (x1 * x2 + y1 * y2) * len1 * len2;
+	  
+	  
+	  if(cosine > 1.0) {
+	    return 0;
+	  }
+	  else if(cosine < -1.0) {
+	    return Math.PI;
+	  } else {
+	    return Math.acos(cosine);
+	  }
+	}
 </script>
 <meta name="keywords" content="">
 <link href="" rel="stylesheet">
@@ -66,8 +96,8 @@
 					this.tag.setAttribute(attr, attrs[attr].join(' ').toString());	
 					continue;
 				}
-				if(attr == 'worldTranslate' || attr == 'arrowTranslate' || 'arrowRoate'){
-					let _attrs = `translate(${attrs.worldTranslate.toString()}) translate(${attrs.arrowTranslate.toString()}) rotate(${attrs.arrowRoate})`;
+				if(attr == 'worldTranslate' || attr == 'arrowTranslate' || 'arrowRotate'){
+					let _attrs = `translate(${attrs.worldTranslate.toString()}) translate(${attrs.arrowTranslate.toString()}) rotate(${attrs.arrowRotate} ${0} ${10})`;
 					this.tag.setAttribute('transform', _attrs);
 					continue;
 				}
@@ -98,33 +128,35 @@
 	let PB = [initX-12, initH];
 	let PC = [initX-10, 7];
 	let PD = [initX-10, initH-7];
+	let initPoints = [PO1, PC, PA, PX, PB, PD, PO2];
+	let initWorldTranslate = [0, 0];
+	let initArrayTranslate = [0, 0];
 	let attrs = {
 		style:"stroke:rgb(99,99,99);",
-		points:[PO1, PC, PA, PX, PB, PD, PO2],
+		points:JSON.parse(JSON.stringify(initPoints)),
 		// points:[[0, 9], [16, 7], [4,0], [16, 10], [4,20], [16, 20-7], [0, 11]],
-		worldTranslate:[0, 0],
-		arrowTranslate:[0, 0],
-		arrowRoate:360,
+		worldTranslate:JSON.parse(JSON.stringify(initWorldTranslate)),
+		arrowTranslate:JSON.parse(JSON.stringify(initArrayTranslate)),
+		arrowRotate:360,
 		x:0,
 		y:0,
 	};
 	let reg = /(\d+,\s*-?\d+).*\(-?\d+\)/ig;
 	let onmousedown = e=>{
 		attrs.x = e.offsetX;
-		attrs.y = e.offsetY;
+		attrs.y = e.offsetY-initY;
 		attrs.worldTranslate = [attrs.x, attrs.y]
 		rectobj = new createSVG('polygon', attrs);
 		svgg.appendChild(rectobj.tag);
 		svg.addEventListener('mousemove', onmousemove);
 		svg.addEventListener('mouseup', onmouseup);
-
 	}
           
 
 	
 	let onmousemove = e=>{
 		let x = e.offsetX - attrs.x;
-		let y = e.offsetY- attrs.y;
+		let y = e.offsetY- attrs.y -initY;
 
 		if(x < initX) return;
 		let newX = Math.sqrt(Math.pow(x, 2) + Math.pow(y, 2));
@@ -133,20 +165,34 @@
 		attrs.points[2][0] = newX-cornABX;
 		attrs.points[4][0] = newX-cornABX;
 		attrs.points[5][0] = newX-cornCDX;
-		let newRotate = 180*Math.acos(x/newX)/Math.PI;
-		if(newRotate == 0) newRotate = 360;
-		attrs.arrowRoate = newRotate;
+
+		// let newRotate = 180*Math.acos(x/newX)/Math.PI;
+		
+		let newVector = [x, y];
+		let oldVector = [attrs.x, 0];
+
+		let angle = vec2.angle(newVector, oldVector);
+		newRotate = angle*180/Math.PI;
+
+
+		console.log(newRotate, )
+
+		if(e.offsetY < attrs.y){
+			newRotate = 360 - newRotate;
+		}else{
+		}
+		attrs.arrowRotate = newRotate;
 		rectobj.setAttrs(attrs);
 	}
 
 	let onmouseup = ()=>{
 		attrs = {
 			style:"stroke:rgb(99,99,99);",
+			points:JSON.parse(JSON.stringify(initPoints)),
 			// points:[[0, 9], [16, 7], [4,0], [16, 10], [4,20], [16, 20-7], [0, 11]],
-			points:[PO1, PC, PA, PX, PB, PD, PO2],
-			worldTranslate:[0, 0],
-			arrowTranslate:[0, 0],
-			arrowRoate:360,
+			worldTranslate:JSON.parse(JSON.stringify(initWorldTranslate)),
+			arrowTranslate:JSON.parse(JSON.stringify(initArrayTranslate)),
+			arrowRotate:360,
 			x:0,
 			y:0,
 		};
