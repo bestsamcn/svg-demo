@@ -4,22 +4,11 @@
 <meta charset="utf-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
 <title>demo8-polygonArrayLine</title>
-<meta name="description" content="">
-<script src="./gl-martrix.js"></script>
 <script>
-	vec2.rotate = (out, a, b, c)=>{
-	  //Translate point to the origin
-	  let p0 = a[0] - b[0],
-	  p1 = a[1] - b[1],
-	  sinC = Math.sin(c),
-	  cosC = Math.cos(c);
-	  
-	  //perform rotation and translate to correct position
-	  out[0] = p0*cosC - p1*sinC + b[0];
-	  out[1] = p0*sinC + p1*cosC + b[1];
-	  return out;
-	}
-	vec2.angle = (a, b)=>{
+
+
+	//求2d向量夹角
+	var angleVector2d = (a, b)=>{
 	  let x1 = a[0],
 	    y1 = a[1],
 	    x2 = b[0],
@@ -27,13 +16,11 @@
 	  
 	  let len1 = x1*x1 + y1*y1;
 	  if (len1 > 0) {
-	    //TODO: evaluate use of glm_invsqrt here?
 	    len1 = 1 / Math.sqrt(len1);
 	  }
 	  
 	  let len2 = x2*x2 + y2*y2;
 	  if (len2 > 0) {
-	    //TODO: evaluate use of glm_invsqrt here?
 	    len2 = 1 / Math.sqrt(len2);
 	  }
 	  
@@ -141,7 +128,6 @@
 		x:0,
 		y:0,
 	};
-	let reg = /(\d+,\s*-?\d+).*\(-?\d+\)/ig;
 	let onmousedown = e=>{
 		attrs.x = e.offsetX;
 		attrs.y = e.offsetY-initY;
@@ -158,29 +144,38 @@
 		let x = e.offsetX - attrs.x;
 		let y = e.offsetY- attrs.y -initY;
 
-		if(x < initX) return;
+		//勾股定理
 		let newX = Math.sqrt(Math.pow(x, 2) + Math.pow(y, 2));
+
+		//当长度小于最小值
+		if(newX < initX) newX = initX;
+
+		//只修改x值，也就是修改长度
 		attrs.points[3][0] = newX;
 		attrs.points[1][0] = newX-cornCDX;
 		attrs.points[2][0] = newX-cornABX;
 		attrs.points[4][0] = newX-cornABX;
 		attrs.points[5][0] = newX-cornCDX;
 
-		// let newRotate = 180*Math.acos(x/newX)/Math.PI;
 		
+		//定义向量，求夹角		
 		let newVector = [x, y];
 		let oldVector = [attrs.x, 0];
 
-		let angle = vec2.angle(newVector, oldVector);
+		let angle = angleVector2d(newVector, oldVector);
 		newRotate = angle*180/Math.PI;
-
-
-		console.log(newRotate, )
-
+		
+		//自动吸附到0度
+		if(newRotate < 2) newRotate = 0;
+		
+		//当鼠标移动到初始箭头上方时
 		if(e.offsetY < attrs.y){
 			newRotate = 360 - newRotate;
-		}else{
 		}
+
+		//自动吸附
+		if(newRotate < 182 && newRotate > 178) newRotate = 180;
+
 		attrs.arrowRotate = newRotate;
 		rectobj.setAttrs(attrs);
 	}
@@ -189,7 +184,6 @@
 		attrs = {
 			style:"stroke:rgb(99,99,99);",
 			points:JSON.parse(JSON.stringify(initPoints)),
-			// points:[[0, 9], [16, 7], [4,0], [16, 10], [4,20], [16, 20-7], [0, 11]],
 			worldTranslate:JSON.parse(JSON.stringify(initWorldTranslate)),
 			arrowTranslate:JSON.parse(JSON.stringify(initArrayTranslate)),
 			arrowRotate:360,
