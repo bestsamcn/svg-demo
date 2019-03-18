@@ -47,7 +47,7 @@
 <body>
     <div class="svg" style="width:600px; height:600px;border:1px solid #333; position: relative;">
     	<svg pointer-events="painted" width="600" height="600" id="svg" style="position:absolute; left:0px; top:0px;">
-    		<g id="ggg"></g>
+    		<g id="ggg" pointer-events="inherit"></g>
 
     	</svg>
     	<div style="position: absolute;left:0;top:0; width:100%; height:100%; pointer-events:none;" class="svg-hover"></div>
@@ -78,7 +78,7 @@
 		 */
 		setAttrs(attrs){
 			for(let attr in attrs){
-				if(attr == 'ref') continue;
+				if(attr == 'ref' || attr == 'polygon') continue;
 				if(attr == 'points'){
 					this.tag.setAttribute(attr, attrs[attr].join(' ').toString());	
 					continue;
@@ -103,7 +103,6 @@
 	*/
 
 	
-	let rectobj = null;
 	let initY = 10;
 	let initX = 16;
 	let initH = 20;
@@ -136,21 +135,29 @@
 			dy:0,
 			width:initX,
 			height:initH,
-			canHover:false
+			canHover:false,
+			'pointer-events':"inherit"
 		}
 	};
 
 
 	
 	let objBindHover = obj=>{
+
+		//阻挡右键默认菜单
+		document.querySelector('svg').oncontextmenu = (e)=>{e.preventDefault()}
+		//遮罩
 		let dom = null;
-		
 		obj.ref.onmouseenter = ()=>{
-			console.log(obj.canHover)
+			obj.ref.style = obj.hoverStyle;
+		}
+		obj.ref.onmouseleave = ()=>{
+			obj.ref.style = obj.style;
+		}
+		obj.ref.onmousedown = (e)=>{
 			isHovering = true;
 			if(!obj.canHover) return;
 			!dom && (dom = document.createElement('div')) & document.querySelector('.svg-hover').appendChild(dom);
-			
 			dom.style.position = 'absolute';
 			dom.style.left = 0;
 			dom.style.top = 0;
@@ -159,23 +166,47 @@
 			dom.style.height = obj.height+'px';
 			dom.style.display = 'block';
 			dom.style.background='rgba(0, 0, 0, 0.5)';
+			dom.style.cursor='move';
+			dom.style.pointerEvents='all';
 			dom.style.transformOrigin = `0px ${initY}px`;
 			dom.style.transform=`translate(${obj.worldTranslate[0]}px, ${obj.worldTranslate[1]}px) rotate(${obj.arrowRotate}deg)`;
 			document.querySelector('.svg-hover').style.display='block';
-			obj.ref.style = obj.hoverStyle;
+			obj.ref.style = obj.style;
+			document.onmousedown = e=>{
+				let x = e.offsetX;
+				let y = e.offsetY;
+				let mousemove = e=>{
+					let disx = e.offsetX - x;
+					let disy = e.offsetY - y;
+					console.log(disx, disy, 'fffffffffffff')
+					dom.style.transform = `translate(${obj.worldTranslate[0]}px, ${obj.worldTranslate[1]}px) translate(${disx}px, ${disy}px rotate(${obj.arrowRotate}deg)`;
+					obj.arrowTranslate = [disx, disy];
+					obj.polygon.setAttrs(obj);
+				}
 
+				let mouseup= e=>{
+					document.removeEventListener('mousemove', mousemove);
+					document.removeEventListener('mouseup', mouseup);
+				}
+				document.addEventListener('mousemove', mousemove);
+				document.addEventListener('mouseup', mouseup);
+			}
+
+			e.stopPropagation();
 		}
-
-		obj.ref.onmouseleave = ()=>{
+		let cancel = (e)=>{
+			if(e.button != 2) return;
 			isHovering = false;
+			obj['pointer-events'] = 'inherit';
+			obj.polygon.setAttrs(obj);
 			dom && (dom.style.display='none');
-			// dom.remove();
 			obj.ref.style = obj.style;
 		}
+		document.addEventListener('mousedown', cancel);
 	}
 	
 	let currentOBJ = {};
-	let isHovering = false
+	let isHovering = false;
 	window.polygonArrowLines = [];
 	let onmousedown = e=>{
 		if(isHovering) return;
@@ -184,16 +215,16 @@
 		currentOBJ.ox = e.offsetX;
 		currentOBJ.oy = e.offsetY-initY;
 		currentOBJ.worldTranslate = [currentOBJ.ox, currentOBJ.oy];
-		rectobj = new createSVG('polygon', currentOBJ);
+		currentOBJ.polygon = new createSVG('polygon', currentOBJ);
 
 		//保存引用
-		currentOBJ.ref = rectobj.tag;
+		currentOBJ.ref = currentOBJ.polygon.tag;
 		
 		//绑定hover事件
 		objBindHover(currentOBJ);
 
 
-		svgg.appendChild(rectobj.tag);
+		svgg.appendChild(currentOBJ.polygon.tag);
 		svg.addEventListener('mousemove', onmousemove);
 		svg.addEventListener('mouseup', onmouseup);
 	}
@@ -242,7 +273,7 @@
 		if(newRotate < 182 && newRotate > 178) newRotate = 180;
 		
 		currentOBJ.arrowRotate = newRotate;
-		rectobj.setAttrs(currentOBJ);
+		currentOBJ.polygon.setAttrs(currentOBJ);
 	}
 
 	let onmouseup = ()=>{
