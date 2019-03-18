@@ -149,7 +149,7 @@
 			console.log(obj.canHover)
 			isHovering = true;
 			if(!obj.canHover) return;
-			!dom && (dom = document.createElement('div'));
+			!dom && (dom = document.createElement('div')) & document.querySelector('.svg-hover').appendChild(dom);
 			
 			dom.style.position = 'absolute';
 			dom.style.left = 0;
@@ -162,7 +162,6 @@
 			dom.style.transformOrigin = `0px ${initY}px`;
 			dom.style.transform=`translate(${obj.worldTranslate[0]}px, ${obj.worldTranslate[1]}px) rotate(${obj.arrowRotate}deg)`;
 			document.querySelector('.svg-hover').style.display='block';
-			document.querySelector('.svg-hover').appendChild(dom);
 			obj.ref.style = obj.hoverStyle;
 
 		}
