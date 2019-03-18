@@ -172,6 +172,9 @@
 			dom.style.transform=`translate(${obj.worldTranslate[0]}px, ${obj.worldTranslate[1]}px) rotate(${obj.arrowRotate}deg)`;
 			document.querySelector('.svg-hover').style.display='block';
 			obj.ref.style = obj.style;
+
+
+			//there is a bug below
 			document.onmousedown = e=>{
 				let x = e.offsetX;
 				let y = e.offsetY;
