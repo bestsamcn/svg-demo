@@ -100,11 +100,15 @@
 			this.drapMaskRef.onmousedown = e=>{
 				let x = e.clientX;
 				let y = e.clientY;
+				let disx = 0;
+				let disy = 0;
 				let mousemove = e=>{
-					let disx = e.clientX - x;
-					let disy = e.clientY - y;
+					disx = e.clientX - x;
+					disy = e.clientY - y;
 					x = e.clientX;
 					y = e.clientY;
+
+					
 
 					//箭头和遮罩移动一致
 					this.drapMaskRef.style.transform = `translate(${this.polygonProps.worldTranslate[0]}px, ${this.polygonProps.worldTranslate[1]}px) translate(${this.polygonProps.arrowTranslate[0]+disx}px, ${this.polygonProps.arrowTranslate[1]+disy}px) rotate(${this.polygonProps.arrowRotate}deg)`;
@@ -113,6 +117,10 @@
 				}
 
 				let mouseup= e=>{
+
+					//保存移动偏差
+					this.polygonProps.arrowTranslate[0] += disx;
+					this.polygonProps.arrowTranslate[1] += disy;
 					document.removeEventListener('mousemove', mousemove);
 					document.removeEventListener('mouseup', mouseup);
 				}
@@ -120,24 +128,47 @@
 				document.addEventListener('mouseup', mouseup);
 			}
 		}
+
+
+		//创建两个移动点
+		createControllerPoints(){
+			
+		}
 		
 
 		//创建遮罩
 		createDrapMask(){
 			if(!this.polygonProps.canHover) return;
 			!this.drapMaskRef && (this.drapMaskRef = document.createElement('div')) & document.querySelector('.svg-hover').appendChild(this.drapMaskRef);
-			this.drapMaskRef.style.position = 'absolute';
-			this.drapMaskRef.style.left = 0;
-			this.drapMaskRef.style.top = 0;
-			this.drapMaskRef.style.zIndex = 100;
-			this.drapMaskRef.style.width = this.polygonProps.width+'px';
-			this.drapMaskRef.style.height = this.polygonProps.height+'px';
-			this.drapMaskRef.style.display = 'block';
-			this.drapMaskRef.style.background='rgba(0, 0, 0, 0.5)';
-			this.drapMaskRef.style.cursor='move';
-			this.drapMaskRef.style.pointerEvents='all';
-			this.drapMaskRef.style.transformOrigin = `0px ${initY}px`;
-			this.drapMaskRef.style.transform=`translate(${this.polygonProps.worldTranslate[0]}px, ${this.polygonProps.worldTranslate[1]}px) rotate(${this.polygonProps.arrowRotate}deg)`;
+
+			let styleObj = {
+				position:'absolute',
+				left:0,
+				top:0,
+				zIndex:100,
+				width:this.polygonProps.width+'px',
+				height:this.polygonProps.height+'px',
+				display:'block',
+				background:'rgba(0, 0, 0, 0.5)',
+				cursor:'move',
+				pointerEvents:'all',
+				transformOrigin:`0px ${this.polygonProps.height/2}px`,
+				transform:`translate(${this.polygonProps.worldTranslate[0]}px, ${this.polygonProps.worldTranslate[1]}px) translate(${this.polygonProps.arrowTranslate[0]}px, ${this.polygonProps.arrowTranslate[1]}px) rotate(${this.polygonProps.arrowRotate}deg)`,
+
+			}
+			for(let i in styleObj) this.drapMaskRef.style[i] = styleObj[i];
+			// this.drapMaskRef.style.position = 'absolute';
+			// this.drapMaskRef.style.left = 0;
+			// this.drapMaskRef.style.top = 0;
+			// this.drapMaskRef.style.zIndex = 100;
+			// this.drapMaskRef.style.width = this.polygonProps.width+'px';
+			// this.drapMaskRef.style.height = this.polygonProps.height+'px';
+			// this.drapMaskRef.style.display = 'block';
+			// this.drapMaskRef.style.background='rgba(0, 0, 0, 0.5)';
+			// this.drapMaskRef.style.cursor='move';
+			// this.drapMaskRef.style.pointerEvents='all';
+			// this.drapMaskRef.style.transformOrigin = `0px ${initY}px`;
+			// this.drapMaskRef.style.transform=`translate(${this.polygonProps.worldTranslate[0]}px, ${this.polygonProps.worldTranslate[1]}px) translate(${this.polygonProps.arrowTranslate[0]}px, ${this.polygonProps.arrowTranslate[1]}px) rotate(${this.polygonProps.arrowRotate}deg)`;
 			document.querySelector('.svg-hover').style.display='block';
 			this.polygonProps.polygonArrowRef.style = this.polygonProps.style;
 			
@@ -327,6 +358,7 @@
 	let isHovering = false;
 	window.polygonArrowLines = [];
 	let onmousedown = e=>{
+		if(e.button !=0 ) return;
 		if(currentOBJ.hoverDrapRef && currentOBJ.hoverDrapRef.isHovering) return;
 		currentOBJ = createAttrs();
 		currentOBJ.canHover = false;
