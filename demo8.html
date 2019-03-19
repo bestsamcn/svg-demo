@@ -128,11 +128,51 @@
 				document.addEventListener('mouseup', mouseup);
 			}
 		}
+		
+		//给控制点绑定时间
+		bindControllerPointEvent(point){
+
+			/**
+			 * 1. 确定左右点
+			 * 2. 确定旋转基点
+			 * 3. 移动后，修改设置 箭头， 遮罩的属性，并保存
+			 */
+			point.onmousedown = e=>{
+				
+				point.onmousemove = e=>{
+					
+					e.stopPropagation();
+				}
+
+				e.stopPropagation();
+			}
+			
+		}
 
 
 		//创建两个移动点
-		createControllerPoints(){
-			
+		createControllerPoints(drapMaskRef){
+			let createPoint = (align)=>{
+				let point = document.createElement('a');
+				point.style.href= 'javascript:;';
+				point.style.width = point.style.height = '6px';
+				point.style.border = '2px solid red';
+				point.style.background = '#fff';
+				point.style.borderRadius = '10px';
+				point.style.cursor = 'initial';
+				point.style['pointer-events'] = 'all';
+				point.style.position = 'absolute';
+				point.style.top = '50%';
+				point.style.marginTop = '-5px';
+				align == 'left' && (point.style.left = '-10px') || (point.style.right = '-10px');
+				return point;
+			}
+			let leftPoint = createPoint('left');
+			let rightPoint = createPoint('right');
+			this.bindControllerPointEvent(leftPoint);
+			this.bindControllerPointEvent(rightPoint);
+			drapMaskRef.appendChild(leftPoint);
+			drapMaskRef.appendChild(rightPoint);
 		}
 		
 
@@ -149,7 +189,6 @@
 				width:this.polygonProps.width+'px',
 				height:this.polygonProps.height+'px',
 				display:'block',
-				background:'rgba(0, 0, 0, 0.5)',
 				cursor:'move',
 				pointerEvents:'all',
 				transformOrigin:`0px ${this.polygonProps.height/2}px`,
@@ -157,20 +196,11 @@
 
 			}
 			for(let i in styleObj) this.drapMaskRef.style[i] = styleObj[i];
-			// this.drapMaskRef.style.position = 'absolute';
-			// this.drapMaskRef.style.left = 0;
-			// this.drapMaskRef.style.top = 0;
-			// this.drapMaskRef.style.zIndex = 100;
-			// this.drapMaskRef.style.width = this.polygonProps.width+'px';
-			// this.drapMaskRef.style.height = this.polygonProps.height+'px';
-			// this.drapMaskRef.style.display = 'block';
-			// this.drapMaskRef.style.background='rgba(0, 0, 0, 0.5)';
-			// this.drapMaskRef.style.cursor='move';
-			// this.drapMaskRef.style.pointerEvents='all';
-			// this.drapMaskRef.style.transformOrigin = `0px ${initY}px`;
-			// this.drapMaskRef.style.transform=`translate(${this.polygonProps.worldTranslate[0]}px, ${this.polygonProps.worldTranslate[1]}px) translate(${this.polygonProps.arrowTranslate[0]}px, ${this.polygonProps.arrowTranslate[1]}px) rotate(${this.polygonProps.arrowRotate}deg)`;
 			document.querySelector('.svg-hover').style.display='block';
 			this.polygonProps.polygonArrowRef.style = this.polygonProps.style;
+			
+			//创建控制点
+			this.createControllerPoints(this.drapMaskRef);
 			
 			//绑定拖拽事件
 			this.BindDrapEvent();
