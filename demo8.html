@@ -37,7 +37,7 @@
 	}
 </script>
 <meta name="keywords" content="">
-<link href="" rel="stylesheet">
+<link hpolygonArrowRef="" rel="stylesheet">
 <style>
 	.svg svg, .svg line:hover , .svg path:hover, .svg polygon:hover, .svg rect:hover, .svg circle:hover, .svg ellipse:hover{
 		pointer-events: all;
@@ -57,6 +57,119 @@
 <script>
 	let svg = document.querySelector('#svg');
 	let svgg = svg.querySelector('g');
+
+	class PolygonArrowHoverDrap{
+		constructor(polygonProps){
+			this.polygonProps = polygonProps;
+
+			//遮罩
+			this.drapMaskRef = null;
+
+			//是否正在hover
+			this.isHovering = false;
+		}
+
+		//阻挡右键默认菜单
+		preventDefault(){
+			document.querySelector('svg').oncontextmenu = (e)=>{e.preventDefault()}
+		}
+
+		
+		//hover
+		bindHoverEvent(){
+			this.polygonProps.polygonArrowRef.onmouseenter = ()=>{
+				this.polygonProps.polygonArrowRef.style = this.polygonProps.hoverStyle;
+			}
+			this.polygonProps.polygonArrowRef.onmouseleave = ()=>{
+				this.polygonProps.polygonArrowRef.style = this.polygonProps.style;
+			}
+		}
+
+		
+		//点击箭头
+		bindMouseDownEvent(e){
+			this.polygonProps.polygonArrowRef.addEventListener('mousedown', e=>{
+				this.isHovering = true;
+				this.createDrapMask();
+				e.stopPropagation();
+			});
+		}
+
+		//遮罩随鼠标移动
+		BindDrapEvent(){
+			this.drapMaskRef.onmousedown = e=>{
+				let x = e.clientX;
+				let y = e.clientY;
+				let mousemove = e=>{
+					let disx = e.clientX - x;
+					let disy = e.clientY - y;
+					x = e.clientX;
+					y = e.clientY;
+
+					//箭头和遮罩移动一致
+					this.drapMaskRef.style.transform = `translate(${this.polygonProps.worldTranslate[0]}px, ${this.polygonProps.worldTranslate[1]}px) translate(${this.polygonProps.arrowTranslate[0]+disx}px, ${this.polygonProps.arrowTranslate[1]+disy}px) rotate(${this.polygonProps.arrowRotate}deg)`;
+					this.polygonProps.arrowTranslate = [this.polygonProps.arrowTranslate[0]+disx, this.polygonProps.arrowTranslate[1]+disy];
+					this.polygonProps.polygon.setAttrs(this.polygonProps);
+				}
+
+				let mouseup= e=>{
+					document.removeEventListener('mousemove', mousemove);
+					document.removeEventListener('mouseup', mouseup);
+				}
+				document.addEventListener('mousemove', mousemove);
+				document.addEventListener('mouseup', mouseup);
+			}
+		}
+		
+
+		//创建遮罩
+		createDrapMask(){
+			if(!this.polygonProps.canHover) return;
+			!this.drapMaskRef && (this.drapMaskRef = document.createElement('div')) & document.querySelector('.svg-hover').appendChild(this.drapMaskRef);
+			this.drapMaskRef.style.position = 'absolute';
+			this.drapMaskRef.style.left = 0;
+			this.drapMaskRef.style.top = 0;
+			this.drapMaskRef.style.zIndex = 100;
+			this.drapMaskRef.style.width = this.polygonProps.width+'px';
+			this.drapMaskRef.style.height = this.polygonProps.height+'px';
+			this.drapMaskRef.style.display = 'block';
+			this.drapMaskRef.style.background='rgba(0, 0, 0, 0.5)';
+			this.drapMaskRef.style.cursor='move';
+			this.drapMaskRef.style.pointerEvents='all';
+			this.drapMaskRef.style.transformOrigin = `0px ${initY}px`;
+			this.drapMaskRef.style.transform=`translate(${this.polygonProps.worldTranslate[0]}px, ${this.polygonProps.worldTranslate[1]}px) rotate(${this.polygonProps.arrowRotate}deg)`;
+			document.querySelector('.svg-hover').style.display='block';
+			this.polygonProps.polygonArrowRef.style = this.polygonProps.style;
+			
+			//绑定拖拽事件
+			this.BindDrapEvent();
+			
+			//点击右键遮罩
+			document.addEventListener('mousedown', this.onDisppear.bind(this));
+		}
+		
+
+		//消失
+		onDisppear(e){
+			if(e.button != 2) return;
+			this.isHovering = false;
+			this.polygonProps['pointer-events'] = 'inherit';
+			this.polygonProps.polygon.setAttrs(this.polygonProps);
+			this.drapMaskRef && (this.drapMaskRef.style.display='none');
+			this.polygonProps.polygonArrowRef.style = this.polygonProps.style;
+		}
+			
+	}
+
+	//初始化
+	PolygonArrowHoverDrap.init = (props)=>{
+		let _this = new PolygonArrowHoverDrap(props);
+		_this.preventDefault();
+		_this.bindMouseDownEvent();
+		_this.bindHoverEvent();
+		return _this;
+		
+	}
 	class createSVG{
 		constructor(tag, attrs){
 			this.tag = document.createElementNS('http://www.w3.org/2000/svg', tag);
@@ -78,7 +191,7 @@
 		 */
 		setAttrs(attrs){
 			for(let attr in attrs){
-				if(attr == 'ref' || attr == 'polygon') continue;
+				if(attr == 'polygonArrowRef' || attr == 'polygon') continue;
 				if(attr == 'points'){
 					this.tag.setAttribute(attr, attrs[attr].join(' ').toString());	
 					continue;
@@ -127,8 +240,8 @@
 			worldTranslate:JSON.parse(JSON.stringify(initWorldTranslate)),
 			arrowTranslate:JSON.parse(JSON.stringify(initArrayTranslate)),
 			arrowRotate:360,
-			ref:null,
-			hoverRef:null,
+			polygonArrowRef:null,
+			hoverDrapRef:null,
 			ox:0,
 			oy:0,
 			dx:0,
@@ -136,25 +249,28 @@
 			width:initX,
 			height:initH,
 			canHover:false,
+			isHovering:false,
 			'pointer-events':"inherit"
 		}
 	};
 
-
+	
 	
 	let objBindHover = obj=>{
 
 		//阻挡右键默认菜单
 		document.querySelector('svg').oncontextmenu = (e)=>{e.preventDefault()}
+
+		
 		//遮罩
 		let dom = null;
-		obj.ref.onmouseenter = ()=>{
-			obj.ref.style = obj.hoverStyle;
+		obj.polygonArrowRef.onmouseenter = ()=>{
+			obj.polygonArrowRef.style = obj.hoverStyle;
 		}
-		obj.ref.onmouseleave = ()=>{
-			obj.ref.style = obj.style;
+		obj.polygonArrowRef.onmouseleave = ()=>{
+			obj.polygonArrowRef.style = obj.style;
 		}
-		obj.ref.onmousedown = (e)=>{
+		obj.polygonArrowRef.onmousedown = (e)=>{
 			isHovering = true;
 			if(!obj.canHover) return;
 			!dom && (dom = document.createElement('div')) & document.querySelector('.svg-hover').appendChild(dom);
@@ -171,18 +287,17 @@
 			dom.style.transformOrigin = `0px ${initY}px`;
 			dom.style.transform=`translate(${obj.worldTranslate[0]}px, ${obj.worldTranslate[1]}px) rotate(${obj.arrowRotate}deg)`;
 			document.querySelector('.svg-hover').style.display='block';
-			obj.ref.style = obj.style;
+			obj.polygonArrowRef.style = obj.style;
 
 
 			//there is a bug below
 			document.onmousedown = e=>{
-				let x = e.offsetX;
-				let y = e.offsetY;
+				let x = e.clientX;
+				let y = e.clientY;
 				let mousemove = e=>{
-					let disx = e.offsetX - x;
-					let disy = e.offsetY - y;
-					console.log(disx, disy, 'fffffffffffff')
-					dom.style.transform = `translate(${obj.worldTranslate[0]}px, ${obj.worldTranslate[1]}px) translate(${disx}px, ${disy}px rotate(${obj.arrowRotate}deg)`;
+					let disx = e.clientX - x;
+					let disy = e.clientY - y;
+					dom.style.transform = `translate(${obj.worldTranslate[0]}px, ${obj.worldTranslate[1]}px) translate(${disx}px, ${disy}px) rotate(${obj.arrowRotate}deg)`;
 					obj.arrowTranslate = [disx, disy];
 					obj.polygon.setAttrs(obj);
 				}
@@ -203,7 +318,7 @@
 			obj['pointer-events'] = 'inherit';
 			obj.polygon.setAttrs(obj);
 			dom && (dom.style.display='none');
-			obj.ref.style = obj.style;
+			obj.polygonArrowRef.style = obj.style;
 		}
 		document.addEventListener('mousedown', cancel);
 	}
@@ -212,7 +327,7 @@
 	let isHovering = false;
 	window.polygonArrowLines = [];
 	let onmousedown = e=>{
-		if(isHovering) return;
+		if(currentOBJ.hoverDrapRef && currentOBJ.hoverDrapRef.isHovering) return;
 		currentOBJ = createAttrs();
 		currentOBJ.canHover = false;
 		currentOBJ.ox = e.offsetX;
@@ -221,10 +336,12 @@
 		currentOBJ.polygon = new createSVG('polygon', currentOBJ);
 
 		//保存引用
-		currentOBJ.ref = currentOBJ.polygon.tag;
+		currentOBJ.polygonArrowRef = currentOBJ.polygon.tag;
 		
 		//绑定hover事件
-		objBindHover(currentOBJ);
+		currentOBJ.hoverDrapRef =  PolygonArrowHoverDrap.init(currentOBJ, isHovering);
+
+
 
 
 		svgg.appendChild(currentOBJ.polygon.tag);
