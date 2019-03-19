@@ -129,21 +129,80 @@
 			}
 		}
 		
-		//给控制点绑定时间
+		//给控制点绑定事件
 		bindControllerPointEvent(point){
+			let { polygon } = this.polygonProps
 
 			/**
 			 * 1. 确定左右点
 			 * 2. 确定旋转基点
 			 * 3. 移动后，修改设置 箭头， 遮罩的属性，并保存
 			 */
-			point.onmousedown = e=>{
+			
+			let rightPointMove = e=>{
+				e.stopPropagation();
+				let x = e.clientX - this.polygonProps.ox -10;
+				let y = e.clientY- this.polygonProps.oy -initY-10;
+				this.polygonProps.dx = e.clientX;
+				this.polygonProps.dy = e.clientY;
+
+				//勾股定理
+				let newX = Math.sqrt(Math.pow(x, 2) + Math.pow(y, 2));
+
+				//当长度小于最小值
+				if(newX < initX) newX = initX;
+
+				this.polygonProps.width = newX;
+
+				//只修改x值，也就是修改长度
+				this.polygonProps.points[3][0] = newX;
+				this.polygonProps.points[1][0] = newX-cornCDX;
+				this.polygonProps.points[2][0] = newX-cornABX;
+				this.polygonProps.points[4][0] = newX-cornABX;
+				this.polygonProps.points[5][0] = newX-cornCDX;
+
 				
-				point.onmousemove = e=>{
-					
+				//定义向量，求夹角		
+				let newVector = [x, y];
+				let oldVector = [this.polygonProps.ox, 0];
+
+				let angle = angleVector2d(newVector, oldVector);
+				newRotate = angle*180/Math.PI;
+
+				//自动吸附到0度
+				if(newRotate < 2) newRotate = 0;
+				
+				//当鼠标移动到初始箭头上方时
+				
+				if(e.clientY < this.polygonProps.oy){
+					newRotate = 360 - newRotate;
+				}
+
+				//自动吸附
+				if(newRotate < 182 && newRotate > 178) newRotate = 180;
+
+				this.polygonProps.arrowRotate = newRotate;
+				this.polygonProps.polygon.setAttrs(this.polygonProps);
+				this.updateDrapMask('none');
+
+				
+			}
+			point.onmousedown = e=>{
+				if(e.button !=0 ) return;
+				if(this.polygonProps.hoverDrapRef && !this.polygonProps.hoverDrapRef.isHovering) return false;
+				this.polygonProps.canHover = false;
+				
+
+				let mouseup = e=>{
+					this.drapMaskRef.style['pointer-events'] = 'all';
+					document.removeEventListener('mousemove', point._align == 'right' && rightPointMove || null);
+					document.removeEventListener('mouseup', mouseup);
+					this.polygonProps.canHover = true;
 					e.stopPropagation();
 				}
 
+				document.addEventListener('mousemove', point._align == 'right' && rightPointMove || null);
+				document.addEventListener('mouseup', mouseup);
 				e.stopPropagation();
 			}
 			
@@ -164,11 +223,14 @@
 				point.style.position = 'absolute';
 				point.style.top = '50%';
 				point.style.marginTop = '-5px';
-				align == 'left' && (point.style.left = '-10px') || (point.style.right = '-10px');
+				point._align = align;
+				align == 'left' && (point.style.left = '-5px') || (point.style.right = '-5px');
 				return point;
 			}
 			let leftPoint = createPoint('left');
 			let rightPoint = createPoint('right');
+			leftPoint.oncontextmenu = (e)=>{e.preventDefault()}
+			rightPoint.oncontextmenu = (e)=>{e.preventDefault()}
 			this.bindControllerPointEvent(leftPoint);
 			this.bindControllerPointEvent(rightPoint);
 			drapMaskRef.appendChild(leftPoint);
@@ -176,11 +238,7 @@
 		}
 		
 
-		//创建遮罩
-		createDrapMask(){
-			if(!this.polygonProps.canHover) return;
-			!this.drapMaskRef && (this.drapMaskRef = document.createElement('div')) & document.querySelector('.svg-hover').appendChild(this.drapMaskRef);
-
+		updateDrapMask(pointerEvents){
 			let styleObj = {
 				position:'absolute',
 				left:0,
@@ -190,12 +248,20 @@
 				height:this.polygonProps.height+'px',
 				display:'block',
 				cursor:'move',
-				pointerEvents:'all',
+				pointerEvents:pointerEvents,
 				transformOrigin:`0px ${this.polygonProps.height/2}px`,
 				transform:`translate(${this.polygonProps.worldTranslate[0]}px, ${this.polygonProps.worldTranslate[1]}px) translate(${this.polygonProps.arrowTranslate[0]}px, ${this.polygonProps.arrowTranslate[1]}px) rotate(${this.polygonProps.arrowRotate}deg)`,
 
 			}
 			for(let i in styleObj) this.drapMaskRef.style[i] = styleObj[i];
+		}
+
+		//创建遮罩
+		createDrapMask(){
+			if(!this.polygonProps.canHover) return;
+			!this.drapMaskRef && (this.drapMaskRef = document.createElement('div')) & document.querySelector('.svg-hover').appendChild(this.drapMaskRef);
+
+			this.updateDrapMask('all');
 			document.querySelector('.svg-hover').style.display='block';
 			this.polygonProps.polygonArrowRef.style = this.polygonProps.style;
 			
@@ -302,6 +368,8 @@
 			arrowTranslate:JSON.parse(JSON.stringify(initArrayTranslate)),
 			arrowRotate:360,
 			polygonArrowRef:null,
+
+			//拖拽对象，非dom
 			hoverDrapRef:null,
 			ox:0,
 			oy:0,
@@ -316,73 +384,6 @@
 	};
 
 	
-	
-	let objBindHover = obj=>{
-
-		//阻挡右键默认菜单
-		document.querySelector('svg').oncontextmenu = (e)=>{e.preventDefault()}
-
-		
-		//遮罩
-		let dom = null;
-		obj.polygonArrowRef.onmouseenter = ()=>{
-			obj.polygonArrowRef.style = obj.hoverStyle;
-		}
-		obj.polygonArrowRef.onmouseleave = ()=>{
-			obj.polygonArrowRef.style = obj.style;
-		}
-		obj.polygonArrowRef.onmousedown = (e)=>{
-			isHovering = true;
-			if(!obj.canHover) return;
-			!dom && (dom = document.createElement('div')) & document.querySelector('.svg-hover').appendChild(dom);
-			dom.style.position = 'absolute';
-			dom.style.left = 0;
-			dom.style.top = 0;
-			dom.style.zIndex = 100;
-			dom.style.width = obj.width+'px';
-			dom.style.height = obj.height+'px';
-			dom.style.display = 'block';
-			dom.style.background='rgba(0, 0, 0, 0.5)';
-			dom.style.cursor='move';
-			dom.style.pointerEvents='all';
-			dom.style.transformOrigin = `0px ${initY}px`;
-			dom.style.transform=`translate(${obj.worldTranslate[0]}px, ${obj.worldTranslate[1]}px) rotate(${obj.arrowRotate}deg)`;
-			document.querySelector('.svg-hover').style.display='block';
-			obj.polygonArrowRef.style = obj.style;
-
-
-			//there is a bug below
-			document.onmousedown = e=>{
-				let x = e.clientX;
-				let y = e.clientY;
-				let mousemove = e=>{
-					let disx = e.clientX - x;
-					let disy = e.clientY - y;
-					dom.style.transform = `translate(${obj.worldTranslate[0]}px, ${obj.worldTranslate[1]}px) translate(${disx}px, ${disy}px) rotate(${obj.arrowRotate}deg)`;
-					obj.arrowTranslate = [disx, disy];
-					obj.polygon.setAttrs(obj);
-				}
-
-				let mouseup= e=>{
-					document.removeEventListener('mousemove', mousemove);
-					document.removeEventListener('mouseup', mouseup);
-				}
-				document.addEventListener('mousemove', mousemove);
-				document.addEventListener('mouseup', mouseup);
-			}
-
-			e.stopPropagation();
-		}
-		let cancel = (e)=>{
-			if(e.button != 2) return;
-			isHovering = false;
-			obj['pointer-events'] = 'inherit';
-			obj.polygon.setAttrs(obj);
-			dom && (dom.style.display='none');
-			obj.polygonArrowRef.style = obj.style;
-		}
-		document.addEventListener('mousedown', cancel);
-	}
 	
 	let currentOBJ = {};
 	let isHovering = false;
