@@ -141,12 +141,16 @@
 			
 			let rightPointMove = e=>{
 				e.stopPropagation();
-				let x = e.clientX - this.polygonProps.ox -10;
-				let y = e.clientY- this.polygonProps.oy -initY-10;
+
+				//辅助三角形旋转角的临边
+				let x = e.clientX - (this.polygonProps.ox + this.polygonProps.arrowTranslate[0]) -10;
+
+				//构成三角形旋转角的对边
+				let y = e.clientY- (this.polygonProps.oy + this.polygonProps.arrowTranslate[1])-initY-10;
 				this.polygonProps.dx = e.clientX;
 				this.polygonProps.dy = e.clientY;
 
-				//勾股定理
+				//勾股定理，这个就是旋转后的width
 				let newX = Math.sqrt(Math.pow(x, 2) + Math.pow(y, 2));
 
 				//当长度小于最小值
@@ -169,17 +173,22 @@
 				let angle = angleVector2d(newVector, oldVector);
 				newRotate = angle*180/Math.PI;
 
+
 				//自动吸附到0度
 				if(newRotate < 2) newRotate = 0;
 				
 				//当鼠标移动到初始箭头上方时
 				
-				if(e.clientY < this.polygonProps.oy){
+				if(e.clientY < this.polygonProps.oy + this.polygonProps.arrowTranslate[1]){
 					newRotate = 360 - newRotate;
 				}
 
+
 				//自动吸附
 				if(newRotate < 182 && newRotate > 178) newRotate = 180;
+
+				console.log(newRotate)
+
 
 				this.polygonProps.arrowRotate = newRotate;
 				this.polygonProps.polygon.setAttrs(this.polygonProps);
@@ -393,8 +402,8 @@
 		if(currentOBJ.hoverDrapRef && currentOBJ.hoverDrapRef.isHovering) return;
 		currentOBJ = createAttrs();
 		currentOBJ.canHover = false;
-		currentOBJ.ox = e.offsetX;
-		currentOBJ.oy = e.offsetY-initY;
+		currentOBJ.ox = e.clientX;
+		currentOBJ.oy = e.clientY-initY;
 		currentOBJ.worldTranslate = [currentOBJ.ox, currentOBJ.oy];
 		currentOBJ.polygon = new createSVG('polygon', currentOBJ);
 
@@ -415,11 +424,11 @@
 
 	
 	let onmousemove = e=>{
-		let x = e.offsetX - currentOBJ.ox;
-		let y = e.offsetY- currentOBJ.oy -initY;
+		let x = e.clientX - currentOBJ.ox;
+		let y = e.clientY- currentOBJ.oy -initY;
 
-		currentOBJ.dx = e.offsetX;
-		currentOBJ.dy = e.offsetY;
+		currentOBJ.dx = e.clientX;
+		currentOBJ.dy = e.clientY;
 
 		//勾股定理
 		let newX = Math.sqrt(Math.pow(x, 2) + Math.pow(y, 2));
@@ -448,7 +457,7 @@
 		if(newRotate < 2) newRotate = 0;
 		
 		//当鼠标移动到初始箭头上方时
-		if(e.offsetY < currentOBJ.oy){
+		if(e.clientY < currentOBJ.oy + currentOBJ.arrowTranslate[1]){
 			newRotate = 360 - newRotate;
 		}
 
