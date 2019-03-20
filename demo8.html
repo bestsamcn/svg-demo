@@ -368,21 +368,13 @@
 		return _this;
 		
 	}
-	class createSVG{
+	class CreateSVG{
 		constructor(tag, attrs){
 			this.tag = document.createElementNS('http://www.w3.org/2000/svg', tag);
 			this.attrs = attrs;
 			this.setAttrs(attrs);
 		}
 
-		/**
-		 * 设置属性
-		 * @param {String} name 属性名
-		 * @param {String} value 属性值
-		 */
-		setAttr(name, value){
-			this.tag[name] = value;
-		}
 		/**
 		 * 设置属性对象
 		 * @param {Object} attrs 属性名
@@ -403,149 +395,365 @@
 	        }
 		}
 	}
-	// 0,3 4,3 4,0 16,6 4,12 4,9 0,9
-	/*        	  A	 
-			  	  | C 
-			  		|
-	O----------------|-----X			  		
-			  		|
-			  	  | D
-	          	  B	
-	*/
 
-	
-	let initY = 10;
-	let initX = 16;
-	let initH = 20;
-	let cornABX = 12;
-	let cornCDX = 10;
-	let PO1 = [0, initY-1];
-	let PO2 = [0, initY+1];
-	let PX = [initX, initY];
-	let PA = [initX-12, 0];
-	let PB = [initX-12, initH];
-	let PC = [initX-10, 7];
-	let PD = [initX-10, initH-7];
-	let initPoints = [PO1, PC, PA, PX, PB, PD, PO2];
-	let initWorldTranslate = [0, 0];
-	let initArrowTranslate = [0, 0];
-	let initArrowOrigin = [0, initY];
-	let createAttrs = ()=>{
-		return {
-			hoverStyle:'fill:green',
-			style:'fill:red',
-			points:JSON.parse(JSON.stringify(initPoints)),
-			// points:[[0, 9], [16, 7], [4,0], [16, 10], [4,20], [16, 20-7], [0, 11]],
-			//世界坐标移动
-			worldTranslate:JSON.parse(JSON.stringify(initWorldTranslate)),
 
-			//模型坐标移动
-			arrowTranslate:JSON.parse(JSON.stringify(initArrowTranslate)),
-			arrowLeftRotate:360,
-			arrowRightRotate:360,
-			polygonArrowRef:null,
-
-			//拖拽对象，非dom
-			hoverDrapRef:null,
-			arrowOrigin:JSON.parse(JSON.stringify(initArrowOrigin)),
-			ox:0,
-			oy:0,
-			dx:0,
-			dy:0,
-			width:initX,
-			height:initH,
-			canHover:false,
-			isHovering:false,
-			'pointer-events':"inherit"
-		}
-	};
-
-	
-	
-	let currentOBJ = {};
-	let isHovering = false;
-	window.polygonArrowLines = [];
-	let onmousedown = e=>{
-		if(e.button !=0 ) return;
-		if(currentOBJ.hoverDrapRef && currentOBJ.hoverDrapRef.isHovering) return;
-		currentOBJ = createAttrs();
-		
-		currentOBJ.ox = e.clientX;
-		currentOBJ.oy = e.clientY-initY;
-		currentOBJ.worldTranslate = [currentOBJ.ox, currentOBJ.oy];
-		
-		svg.addEventListener('mousemove', onmousemove);
-		svg.addEventListener('mouseup', onmouseup);
+	let primitiveManager = {
+		primitives: [],
+		currentPrimive: null,
+		isHovering: false,
 	}
+
+
+	class EventController{
+		constructor(svgViewer){
+			this.svgViewer = svgViewer;
+			this.svgViewer.addEventListener('mousedown', this._bindMouseDownEvent.bind(this));
+			
+		}
+		
+		bindMouseDownEvent(e){}
+		
+		//按下
+		_bindMouseDownEvent(e){
+			e.stopPropagation();
+			this.bindMouseDownEvent && this.bindMouseDownEvent(e);
+			
+			this.svgViewer.addEventListener('mousemove', this._bindMouseMoveEvent.bind(this));
+			this.svgViewer.addEventListener('mouseup', this._bindMouseUpEvent.bind(this));
+		}
+
+		bindMouseMoveEvent(e){}
+		
+		//移动
+		_bindMouseMoveEvent(e){
+			e.stopPropagation();
+			this.bindMouseMoveEvent && this.bindMouseMoveEvent(e);
+		}
+
+
+		bindMouseUpEvent(e){}
+		_bindMouseUpEvent(e){
+			console.log('sdfasdf')
+			e.stopPropagation();
+			this.bindMouseUpEvent && this.bindMouseUpEvent(e);
+			this.svgViewer.removeEventListener('mousemove', this._bindMouseMoveEvent.bind(this));
+			this.svgViewer.removeEventListener('mouseup', this._bindMouseUpEvent.bind(this));
+		}
+	}
+
+
+	class PolygonArrow extends EventController{
+		constructor(svgViewer, primitiveManager){
+			super(svgViewer);
+
+			/********************************/
+			/*	        	  A	 			*/	
+			/*			  	  | C 			*/
+			/*	O1		  		|			*/
+			/*	O----------------|-----X 	*/			  		
+			/*	02		  		|			*/
+			/*			  	  | D			*/
+			/*	          	  B				*/
+			/********************************/
+
+			let initY = 10;
+			let initX = 16;
+			let initH = 20;
+			let cornABX = 12;
+			let cornCDX = 10;	
+			let PO1 = [0, initY-1];
+			let PO2 = [0, initY+1];
+			let PX = [initX, initY];
+			let PA = [initX-12, 0];
+			let PB = [initX-12, initH];
+			let PC = [initX-10, 7];
+			let PD = [initX-10, initH-7];
+			let initPoints = [PO1, PC, PA, PX, PB, PD, PO2];
+			let initWorldTranslate = [0, 0];
+			let initArrowTranslate = [0, 0];
+			let initArrowOrigin = [0, initY];
+
+
+			this.initData = {
+				initX:initX,
+				initY:initY,
+				cornABX:cornABX,
+				cornCDX:cornCDX,
+				points:initPoints,
+				worldTranslate:initWorldTranslate,
+				arrowTranslate:initArrowTranslate,
+				arrowOrigin:initArrowOrigin,
+				width:initX,
+				height:initH,
+			}
+			
+			this.polygonProps = {};
+		}
+		
+		//初始化属性
+		createAttrs(){
+			return {
+				hoverStyle:'fill:green',
+				style:'fill:red',
+				points:this.initData.points,
+				// points:[[0, 9], [16, 7], [4,0], [16, 10], [4,20], [16, 20-7], [0, 11]],
+				//世界坐标移动
+				worldTranslate:this.initData.worldTranslate,
+
+				//模型坐标移动
+				arrowTranslate:this.initData.arrowTranslate,
+				arrowLeftRotate:360,
+				arrowRightRotate:360,
+
+				//箭头dom
+				polygonArrowRef:null,
+
+				//拖拽对象，非dom
+				hoverDrapRef:null,
+				arrowOrigin:this.initData.arrowOrigin,
+				ox:0,//箭头起始点世界坐标x
+				oy:0,//箭头起始点世界坐标y
+				dx:0,//箭头终点世界坐标x
+				dy:0,//箭头终点世界坐标
+				width:this.initData.width,
+				height:this.initData.height,
+				canHover:false,
+				isHovering:false,
+				'pointer-events':"inherit"
+			}
+		}
+
+		bindMouseDownEvent(e){
+			if(e.button !=0 ) return;
+
+			if(this.polygonProps.hoverDrapRef && this.polygonProps.hoverDrapRef.isHovering) return;
+			this.polygonProps = this.createAttrs();
+			
+			this.polygonProps.ox = e.clientX;
+			this.polygonProps.oy = e.clientY- this.initData.initY;
+			this.polygonProps.worldTranslate = [this.polygonProps.ox, this.polygonProps.oy];
+		}
+
+		bindMouseMoveEvent(e){
+			let x = e.clientX - this.polygonProps.ox;
+			let y = e.clientY- this.polygonProps.oy - this.initData.initY;
+
+			this.polygonProps.dx = e.clientX;
+			this.polygonProps.dy = e.clientY;
+
+			//勾股定理
+			let newX = Math.sqrt(Math.pow(x, 2) + Math.pow(y, 2));
+			
+			//当长度小于最小值
+			if(newX > this.initData.initX && !this.polygonProps.polygon){
+				console.log('setAttrs')
+				this.polygonProps.polygon = new CreateSVG('polygon', this.polygonProps);
+
+				this.polygonProps.canHover = false;
+
+				//保存引用
+				this.polygonProps.polygonArrowRef = this.polygonProps.polygon.tag;
+				
+				//绑定hover事件
+				this.polygonProps.hoverDrapRef =  PolygonArrowHoverDrap.init(this.polygonProps, primitiveManager.isHovering);
+				this.svgViewer.querySelector('g').appendChild(this.polygonProps.polygon.tag);
+			}
+
+			if(newX < this.initData.initX) newX = this.initData.initX;
+
+			
+
+			this.polygonProps.width = newX;
+
+			//只修改x值，也就是修改长度
+			this.polygonProps.points[3][0] = newX;
+			this.polygonProps.points[1][0] = newX-this.initData.cornCDX;
+			this.polygonProps.points[2][0] = newX-this.initData.cornABX;
+			this.polygonProps.points[4][0] = newX-this.initData.cornABX;
+			this.polygonProps.points[5][0] = newX-this.initData.cornCDX;
+
+			
+			//定义向量，求夹角		
+			let newVector = [x, y];
+			let oldVector = [this.polygonProps.ox, 0];
+
+			let angle = angleVector2d(newVector, oldVector);
+			let newRotate = angle*180/Math.PI;
+			
+			//自动吸附到0度
+			if(newRotate < 2) newRotate = 0;
+			
+			//当鼠标移动到初始箭头上方时
+			if(e.clientY < this.polygonProps.oy + this.polygonProps.arrowTranslate[1]){
+				newRotate = 360 - newRotate;
+			}
+
+			//自动吸附
+			if(newRotate < 182 && newRotate > 178) newRotate = 180;
+			
+			this.polygonProps.arrowRightRotate = newRotate;
+			this.polygonProps.polygon && this.polygonProps.polygon.setAttrs(this.polygonProps);
+		}
+
+		bindMouseUpEvent(e){
+			this.polygonProps.canHover = true;
+			primitiveManager.primitives.push(this.polygonProps);
+		}
+	}
+
+
+	
+	new PolygonArrow(svg);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	// let createAttrs = ()=>{
+	// 	return {
+	// 		hoverStyle:'fill:green',
+	// 		style:'fill:red',
+	// 		points:JSON.parse(JSON.stringify(initPoints)),
+	// 		// points:[[0, 9], [16, 7], [4,0], [16, 10], [4,20], [16, 20-7], [0, 11]],
+	// 		//世界坐标移动
+	// 		worldTranslate:JSON.parse(JSON.stringify(initWorldTranslate)),
+
+	// 		//模型坐标移动
+	// 		arrowTranslate:JSON.parse(JSON.stringify(initArrowTranslate)),
+	// 		arrowLeftRotate:360,
+	// 		arrowRightRotate:360,
+
+	// 		//箭头引用dom
+	// 		polygonArrowRef:null,
+
+	// 		//拖拽对象，非dom
+	// 		hoverDrapRef:null,
+	// 		arrowOrigin:JSON.parse(JSON.stringify(initArrowOrigin)),
+	// 		ox:0,
+	// 		oy:0,
+	// 		dx:0,
+	// 		dy:0,
+	// 		width:initX,
+	// 		height:initH,
+	// 		canHover:false,
+	// 		isHovering:false,
+	// 		'pointer-events':"inherit"
+	// 	}
+	// };
+
+	
+	
+	// let currentOBJ = {};
+	// let isHovering = false;
+	// window.polygonArrowLines = [];
+	// let onmousedown = e=>{
+	// 	if(e.button !=0 ) return;
+	// 	if(currentOBJ.hoverDrapRef && currentOBJ.hoverDrapRef.isHovering) return;
+	// 	currentOBJ = createAttrs();
+		
+	// 	currentOBJ.ox = e.clientX;
+	// 	currentOBJ.oy = e.clientY-initY;
+	// 	currentOBJ.worldTranslate = [currentOBJ.ox, currentOBJ.oy];
+		
+	// 	svg.addEventListener('mousemove', onmousemove);
+	// 	svg.addEventListener('mouseup', onmouseup);
+	// }
           
 
 	
-	let onmousemove = e=>{
-		let x = e.clientX - currentOBJ.ox;
-		let y = e.clientY- currentOBJ.oy -initY;
+	// let onmousemove = e=>{
+	// 	let x = e.clientX - currentOBJ.ox;
+	// 	let y = e.clientY- currentOBJ.oy -initY;
 
-		currentOBJ.dx = e.clientX;
-		currentOBJ.dy = e.clientY;
+	// 	currentOBJ.dx = e.clientX;
+	// 	currentOBJ.dy = e.clientY;
 
-		//勾股定理
-		let newX = Math.sqrt(Math.pow(x, 2) + Math.pow(y, 2));
+	// 	//勾股定理
+	// 	let newX = Math.sqrt(Math.pow(x, 2) + Math.pow(y, 2));
 
-		//当长度小于最小值
-		if(newX > initX && !currentOBJ.polygon){
-			currentOBJ.polygon = new createSVG('polygon', currentOBJ);
+	// 	//当长度小于最小值
+	// 	if(newX > initX && !currentOBJ.polygon){
+	// 		currentOBJ.polygon = new CreateSVG('polygon', currentOBJ);
 
-			currentOBJ.canHover = false;
+	// 		currentOBJ.canHover = false;
 
-			//保存引用
-			currentOBJ.polygonArrowRef = currentOBJ.polygon.tag;
+	// 		//保存引用
+	// 		currentOBJ.polygonArrowRef = currentOBJ.polygon.tag;
 			
-			//绑定hover事件
-			currentOBJ.hoverDrapRef =  PolygonArrowHoverDrap.init(currentOBJ, isHovering);
+	// 		//绑定hover事件
+	// 		currentOBJ.hoverDrapRef =  PolygonArrowHoverDrap.init(currentOBJ, isHovering);
 
-			svgg.appendChild(currentOBJ.polygon.tag);
-		}
+	// 		svgg.appendChild(currentOBJ.polygon.tag);
+	// 	}
 
-		if(newX < initX) newX = initX;
-
-		
-
-		currentOBJ.width = newX;
-
-		//只修改x值，也就是修改长度
-		currentOBJ.points[3][0] = newX;
-		currentOBJ.points[1][0] = newX-cornCDX;
-		currentOBJ.points[2][0] = newX-cornABX;
-		currentOBJ.points[4][0] = newX-cornABX;
-		currentOBJ.points[5][0] = newX-cornCDX;
+	// 	if(newX < initX) newX = initX;
 
 		
-		//定义向量，求夹角		
-		let newVector = [x, y];
-		let oldVector = [currentOBJ.ox, 0];
 
-		let angle = angleVector2d(newVector, oldVector);
-		newRotate = angle*180/Math.PI;
-		
-		//自动吸附到0度
-		if(newRotate < 2) newRotate = 0;
-		
-		//当鼠标移动到初始箭头上方时
-		if(e.clientY < currentOBJ.oy + currentOBJ.arrowTranslate[1]){
-			newRotate = 360 - newRotate;
-		}
+	// 	currentOBJ.width = newX;
 
-		//自动吸附
-		if(newRotate < 182 && newRotate > 178) newRotate = 180;
-		
-		currentOBJ.arrowRightRotate = newRotate;
-		currentOBJ.polygon && currentOBJ.polygon.setAttrs(currentOBJ);
-	}
+	// 	//只修改x值，也就是修改长度
+	// 	currentOBJ.points[3][0] = newX;
+	// 	currentOBJ.points[1][0] = newX-cornCDX;
+	// 	currentOBJ.points[2][0] = newX-cornABX;
+	// 	currentOBJ.points[4][0] = newX-cornABX;
+	// 	currentOBJ.points[5][0] = newX-cornCDX;
 
-	let onmouseup = ()=>{
-		currentOBJ.canHover = true;
-		polygonArrowLines.push(currentOBJ);
-		svg.removeEventListener('mousemove', onmousemove);
-		svg.removeEventListener('mouseup', onmouseup);
-	}
-	svg.addEventListener('mousedown', onmousedown);
+		
+	// 	//定义向量，求夹角		
+	// 	let newVector = [x, y];
+	// 	let oldVector = [currentOBJ.ox, 0];
+
+	// 	let angle = angleVector2d(newVector, oldVector);
+	// 	newRotate = angle*180/Math.PI;
+		
+	// 	//自动吸附到0度
+	// 	if(newRotate < 2) newRotate = 0;
+		
+	// 	//当鼠标移动到初始箭头上方时
+	// 	if(e.clientY < currentOBJ.oy + currentOBJ.arrowTranslate[1]){
+	// 		newRotate = 360 - newRotate;
+	// 	}
+
+	// 	//自动吸附
+	// 	if(newRotate < 182 && newRotate > 178) newRotate = 180;
+		
+	// 	currentOBJ.arrowRightRotate = newRotate;
+	// 	currentOBJ.polygon && currentOBJ.polygon.setAttrs(currentOBJ);
+	// }
+
+	// let onmouseup = ()=>{
+	// 	currentOBJ.canHover = true;
+	// 	polygonArrowLines.push(currentOBJ);
+	// 	svg.removeEventListener('mousemove', onmousemove);
+	// 	svg.removeEventListener('mouseup', onmouseup);
+	// }
+	// svg.addEventListener('mousedown', onmousedown);
 </script>
