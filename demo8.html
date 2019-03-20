@@ -59,14 +59,13 @@
 	let svgg = svg.querySelector('g');
 
 	class PolygonArrowHoverDrap{
-		constructor(polygonProps){
+		constructor(polygonProps, primitiveManager, initData){
 			this.polygonProps = polygonProps;
+			this.initData = initData;
+			this.primitiveManager = primitiveManager;
 
 			//遮罩
 			this.drapMaskRef = null;
-
-			//是否正在hover
-			this.isHovering = false;
 		}
 
 		//阻挡右键默认菜单
@@ -89,7 +88,8 @@
 		//点击箭头
 		bindMouseDownEvent(e){
 			this.polygonProps.polygonArrowRef.addEventListener('mousedown', e=>{
-				this.isHovering = true;
+				this.primitiveManager.currentPrimive = this.polygonProps;
+				this.primitiveManager.isHovering = true;
 				this.createDrapMask();
 				e.stopPropagation();
 			});
@@ -98,6 +98,7 @@
 		//遮罩随鼠标移动
 		BindDrapEvent(){
 			this.drapMaskRef.onmousedown = e=>{
+				if(!this.polygonProps.canHover) return;
 				let x = e.clientX;
 				let y = e.clientY;
 				let disx = 0;
@@ -107,8 +108,6 @@
 					disy = e.clientY - y;
 					x = e.clientX;
 					y = e.clientY;
-
-					
 
 					//箭头和遮罩移动一致
 					this.drapMaskRef.style.transform = `translate(${this.polygonProps.worldTranslate[0]}px, ${this.polygonProps.worldTranslate[1]}px) translate(${this.polygonProps.arrowTranslate[0]+disx}px, ${this.polygonProps.arrowTranslate[1]+disy}px) rotate(${this.polygonProps.arrowRightRotate}deg)`;
@@ -145,13 +144,15 @@
 			 */
 			
 			let rightPointMove = e=>{
+				if(e.button != 0) return;
 				e.stopPropagation();
+				console.log('e')
 
 				//辅助三角形旋转角的临边
 				let x = e.clientX - (this.polygonProps.ox + this.polygonProps.arrowTranslate[0]) -10;
 
 				//构成三角形旋转角的对边
-				let y = e.clientY- (this.polygonProps.oy + this.polygonProps.arrowTranslate[1])-initY-10;
+				let y = e.clientY- (this.polygonProps.oy + this.polygonProps.arrowTranslate[1])-this.initData.initY-10;
 				this.polygonProps.dx = e.clientX;
 				this.polygonProps.dy = e.clientY;
 
@@ -159,16 +160,16 @@
 				let newX = Math.sqrt(Math.pow(x, 2) + Math.pow(y, 2));
 
 				//当长度小于最小值
-				if(newX < initX) newX = initX;
+				if(newX < this.initData.initX) newX = this.initData.initX;
 
 				this.polygonProps.width = newX;
 
 				//只修改x值，也就是修改长度
 				this.polygonProps.points[3][0] = newX;
-				this.polygonProps.points[1][0] = newX-cornCDX;
-				this.polygonProps.points[2][0] = newX-cornABX;
-				this.polygonProps.points[4][0] = newX-cornABX;
-				this.polygonProps.points[5][0] = newX-cornCDX;
+				this.polygonProps.points[1][0] = newX- this.initData.cornCDX;
+				this.polygonProps.points[2][0] = newX- this.initData.cornABX;
+				this.polygonProps.points[4][0] = newX- this.initData.cornABX;
+				this.polygonProps.points[5][0] = newX- this.initData.cornCDX;
 
 				
 				//定义向量，求夹角		
@@ -176,7 +177,7 @@
 				let oldVector = [this.polygonProps.ox, 0];
 
 				let angle = angleVector2d(newVector, oldVector);
-				newRotate = angle*180/Math.PI;
+				let newRotate = angle*180/Math.PI;
 
 
 				//自动吸附到0度
@@ -199,6 +200,7 @@
 			}
 
 			let leftPointMove = e=>{
+				if(!this.polygonProps.canHover) return;
 				e.stopPropagation();
 
 				//起始点即左点
@@ -226,10 +228,10 @@
 
 				//只修改x值，也就是修改长度
 				this.polygonProps.points[3][0] = newX;
-				this.polygonProps.points[1][0] = newX-cornCDX;
-				this.polygonProps.points[2][0] = newX-cornABX;
-				this.polygonProps.points[4][0] = newX-cornABX;
-				this.polygonProps.points[5][0] = newX-cornCDX;
+				this.polygonProps.points[1][0] = newX- this.initData.cornCDX;
+				this.polygonProps.points[2][0] = newX- this.initData.cornABX;
+				this.polygonProps.points[4][0] = newX- this.initData.cornABX;
+				this.polygonProps.points[5][0] = newX- this.initData.cornCDX;
 
 				//定义向量，求夹角		
 				let newVector = [x, y];
@@ -237,9 +239,6 @@
 
 				let angle = angleVector2d(newVector, oldVector);
 				newRotate = angle*180/Math.PI;
-
-				console.log(newRotate, 'dddddddddddddd')
-
 
 				//自动吸附到0度
 				if(newRotate < 2) newRotate = 0;
@@ -259,8 +258,10 @@
 
 			}
 			point.onmousedown = e=>{
+				e.stopPropagation();
 				if(e.button !=0 ) return;
-				if(this.polygonProps.hoverDrapRef && !this.polygonProps.hoverDrapRef.isHovering) return false;
+
+				if(this.polygonProps.hoverDrapRef && !this.polygonProps.canHover) return false;
 				this.polygonProps.canHover = false;
 				
 
@@ -274,7 +275,6 @@
 
 				document.addEventListener('mousemove', point._align == 'right' && rightPointMove || leftPointMove);
 				document.addEventListener('mouseup', mouseup);
-				e.stopPropagation();
 			}
 			
 		}
@@ -350,7 +350,7 @@
 		//消失
 		onDisppear(e){
 			if(e.button != 2) return;
-			this.isHovering = false;
+			this.primitiveManager.isHovering = false;
 			this.polygonProps['pointer-events'] = 'inherit';
 			this.polygonProps.polygon.setAttrs(this.polygonProps);
 			this.drapMaskRef && (this.drapMaskRef.style.display='none');
@@ -360,8 +360,8 @@
 	}
 
 	//初始化
-	PolygonArrowHoverDrap.init = (props)=>{
-		let _this = new PolygonArrowHoverDrap(props);
+	PolygonArrowHoverDrap.init = (props, primitiveManager, initData)=>{
+		let _this = new PolygonArrowHoverDrap(props, primitiveManager, initData);
 		_this.preventDefault();
 		_this.bindMouseDownEvent();
 		_this.bindHoverEvent();
@@ -397,10 +397,26 @@
 	}
 
 
-	let primitiveManager = {
-		primitives: [],
-		currentPrimive: null,
-		isHovering: false,
+	class PrimitiveManager {
+		constructor(){
+			this.primitives = [];
+			this._currentPrimive = null;
+			this.isHovering = false;
+		}
+
+		get currentPrimitive(){
+			return this._currentPrimive;
+		}
+		set currentPrimitive(_primitive){
+			if(!!_primitive){
+				_primitive.canHover = true;
+			}
+			this._currentPrimive = _primitive;
+			for(let primitive of this.primitives){
+				primitive.canHover = false;
+			}
+			
+		}
 	}
 
 
@@ -408,43 +424,35 @@
 		constructor(svgViewer){
 			this.svgViewer = svgViewer;
 			this.svgViewer.addEventListener('mousedown', this._bindMouseDownEvent.bind(this));
-			
 		}
 		
-		bindMouseDownEvent(e){}
-		
-		//按下
 		_bindMouseDownEvent(e){
-			e.stopPropagation();
 			this.bindMouseDownEvent && this.bindMouseDownEvent(e);
+
+
+			let bindMouseMoveEvent = (e)=>{
+				this.bindMouseMoveEvent && this.bindMouseMoveEvent(e);
+			}
+
+			let bindMouseUpEvent = (e)=>{
+				this.bindMouseUpEvent && this.bindMouseUpEvent(e);
+				this.svgViewer.removeEventListener('mousemove', bindMouseMoveEvent);
+				this.svgViewer.removeEventListener('mouseup', bindMouseUpEvent);
+			}
 			
-			this.svgViewer.addEventListener('mousemove', this._bindMouseMoveEvent.bind(this));
-			this.svgViewer.addEventListener('mouseup', this._bindMouseUpEvent.bind(this));
+			this.svgViewer.addEventListener('mousemove', bindMouseMoveEvent);
+			this.svgViewer.addEventListener('mouseup', bindMouseUpEvent);
 		}
-
+		bindMouseDownEvent(e){}
 		bindMouseMoveEvent(e){}
-		
-		//移动
-		_bindMouseMoveEvent(e){
-			e.stopPropagation();
-			this.bindMouseMoveEvent && this.bindMouseMoveEvent(e);
-		}
-
-
 		bindMouseUpEvent(e){}
-		_bindMouseUpEvent(e){
-			console.log('sdfasdf')
-			e.stopPropagation();
-			this.bindMouseUpEvent && this.bindMouseUpEvent(e);
-			this.svgViewer.removeEventListener('mousemove', this._bindMouseMoveEvent.bind(this));
-			this.svgViewer.removeEventListener('mouseup', this._bindMouseUpEvent.bind(this));
-		}
 	}
 
 
 	class PolygonArrow extends EventController{
 		constructor(svgViewer, primitiveManager){
 			super(svgViewer);
+			this.primitiveManager = primitiveManager;
 
 			/********************************/
 			/*	        	  A	 			*/	
@@ -526,7 +534,7 @@
 		bindMouseDownEvent(e){
 			if(e.button !=0 ) return;
 
-			if(this.polygonProps.hoverDrapRef && this.polygonProps.hoverDrapRef.isHovering) return;
+			if(this.polygonProps.hoverDrapRef && this.primitiveManager.isHovering) return;
 			this.polygonProps = this.createAttrs();
 			
 			this.polygonProps.ox = e.clientX;
@@ -546,7 +554,6 @@
 			
 			//当长度小于最小值
 			if(newX > this.initData.initX && !this.polygonProps.polygon){
-				console.log('setAttrs')
 				this.polygonProps.polygon = new CreateSVG('polygon', this.polygonProps);
 
 				this.polygonProps.canHover = false;
@@ -555,7 +562,7 @@
 				this.polygonProps.polygonArrowRef = this.polygonProps.polygon.tag;
 				
 				//绑定hover事件
-				this.polygonProps.hoverDrapRef =  PolygonArrowHoverDrap.init(this.polygonProps, primitiveManager.isHovering);
+				this.polygonProps.hoverDrapRef =  PolygonArrowHoverDrap.init(this.polygonProps, primitiveManager, this.initData);
 				this.svgViewer.querySelector('g').appendChild(this.polygonProps.polygon.tag);
 			}
 
@@ -597,14 +604,13 @@
 
 		bindMouseUpEvent(e){
 			this.polygonProps.canHover = true;
+			this.primitiveManager.isHovering = false;
+			this.primitiveManager.currentPrimive = this.polygonProps;
 			primitiveManager.primitives.push(this.polygonProps);
 		}
 	}
-
-
-	
-	new PolygonArrow(svg);
-
+	let primitiveManager = new PrimitiveManager();
+	new PolygonArrow(svg, primitiveManager);
 
 
 
@@ -634,6 +640,22 @@
 
 
 
+	// let initY = 10;
+	// let initX = 16;
+	// let initH = 20;
+	// let cornABX = 12;
+	// let cornCDX = 10;	
+	// let PO1 = [0, initY-1];
+	// let PO2 = [0, initY+1];
+	// let PX = [initX, initY];
+	// let PA = [initX-12, 0];
+	// let PB = [initX-12, initH];
+	// let PC = [initX-10, 7];
+	// let PD = [initX-10, initH-7];
+	// let initPoints = [PO1, PC, PA, PX, PB, PD, PO2];
+	// let initWorldTranslate = [0, 0];
+	// let initArrowTranslate = [0, 0];
+	// let initArrowOrigin = [0, initY];
 
 
 	// let createAttrs = ()=>{
@@ -754,6 +776,7 @@
 	// 	polygonArrowLines.push(currentOBJ);
 	// 	svg.removeEventListener('mousemove', onmousemove);
 	// 	svg.removeEventListener('mouseup', onmouseup);
+	// 	debugger
 	// }
 	// svg.addEventListener('mousedown', onmousedown);
 </script>
