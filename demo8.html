@@ -111,7 +111,7 @@
 					
 
 					//箭头和遮罩移动一致
-					this.drapMaskRef.style.transform = `translate(${this.polygonProps.worldTranslate[0]}px, ${this.polygonProps.worldTranslate[1]}px) translate(${this.polygonProps.arrowTranslate[0]+disx}px, ${this.polygonProps.arrowTranslate[1]+disy}px) rotate(${this.polygonProps.arrowRotate}deg)`;
+					this.drapMaskRef.style.transform = `translate(${this.polygonProps.worldTranslate[0]}px, ${this.polygonProps.worldTranslate[1]}px) translate(${this.polygonProps.arrowTranslate[0]+disx}px, ${this.polygonProps.arrowTranslate[1]+disy}px) rotate(${this.polygonProps.arrowRightRotate}deg)`;
 					this.polygonProps.arrowTranslate = [this.polygonProps.arrowTranslate[0]+disx, this.polygonProps.arrowTranslate[1]+disy];
 					this.polygonProps.polygon.setAttrs(this.polygonProps);
 				}
@@ -127,6 +127,11 @@
 				document.addEventListener('mousemove', mousemove);
 				document.addEventListener('mouseup', mouseup);
 			}
+		}
+		
+		//转坐标
+		toWorldCatesion(a, b){
+			return [a[0]+b[0], a[1]+b[1]];
 		}
 		
 		//给控制点绑定事件
@@ -178,7 +183,6 @@
 				if(newRotate < 2) newRotate = 0;
 				
 				//当鼠标移动到初始箭头上方时
-				
 				if(e.clientY < this.polygonProps.oy + this.polygonProps.arrowTranslate[1]){
 					newRotate = 360 - newRotate;
 				}
@@ -187,14 +191,72 @@
 				//自动吸附
 				if(newRotate < 182 && newRotate > 178) newRotate = 180;
 
-				console.log(newRotate)
-
-
-				this.polygonProps.arrowRotate = newRotate;
+				this.polygonProps.arrowRightRotate = newRotate;
 				this.polygonProps.polygon.setAttrs(this.polygonProps);
-				this.updateDrapMask('none');
+				this.updateDrapMask('none', `left center`);
 
 				
+			}
+
+			let leftPointMove = e=>{
+				e.stopPropagation();
+
+				//起始点即左点
+				let movePoint = this.toWorldCatesion(this.polygonProps.worldTranslate, this.polygonProps.arrowTranslate);
+
+
+				//辅助三角形旋转角的临边
+				let x =  e.clientX - this.polygonProps.dx;
+
+				//构成三角形旋转角的对边
+				let y = e.clientY - this.polygonProps.dy;
+
+
+				//勾股定理，这个就是旋转后的width
+				let newX = Math.sqrt(Math.pow(x, 2) + Math.pow(y, 2));
+
+				//修改世界坐标
+				this.polygonProps.worldTranslate = [e.clientX-10, e.clientY-10];
+
+				//修改长度
+				//当长度小于最小值
+				// if(newX < initX) newX = initX;
+
+				this.polygonProps.width = newX;
+
+				//只修改x值，也就是修改长度
+				this.polygonProps.points[3][0] = newX;
+				this.polygonProps.points[1][0] = newX-cornCDX;
+				this.polygonProps.points[2][0] = newX-cornABX;
+				this.polygonProps.points[4][0] = newX-cornABX;
+				this.polygonProps.points[5][0] = newX-cornCDX;
+
+				//定义向量，求夹角		
+				let newVector = [x, y];
+				let oldVector = [this.polygonProps.ox - this.polygonProps.dx, this.polygonProps.oy - this.polygonProps.dy];
+
+				let angle = angleVector2d(newVector, oldVector);
+				newRotate = angle*180/Math.PI;
+
+				console.log(newRotate, 'dddddddddddddd')
+
+
+				//自动吸附到0度
+				if(newRotate < 2) newRotate = 0;
+				
+				//当鼠标移动到初始箭头上方时
+				if(e.clientY < this.polygonProps.oy + this.polygonProps.arrowTranslate[1]){
+					newRotate = 360 - newRotate;
+				}
+
+
+				//自动吸附
+				if(newRotate < 182 && newRotate > 178) newRotate = 180;
+
+				// this.polygonProps.arrowLeftRotate = newRotate;
+				this.polygonProps.polygon.setAttrs(this.polygonProps);
+				this.updateDrapMask('none', `right center`);
+
 			}
 			point.onmousedown = e=>{
 				if(e.button !=0 ) return;
@@ -204,13 +266,13 @@
 
 				let mouseup = e=>{
 					this.drapMaskRef.style['pointer-events'] = 'all';
-					document.removeEventListener('mousemove', point._align == 'right' && rightPointMove || null);
+					document.removeEventListener('mousemove', point._align == 'right' && rightPointMove || leftPointMove);
 					document.removeEventListener('mouseup', mouseup);
 					this.polygonProps.canHover = true;
 					e.stopPropagation();
 				}
 
-				document.addEventListener('mousemove', point._align == 'right' && rightPointMove || null);
+				document.addEventListener('mousemove', point._align == 'right' && rightPointMove || leftPointMove);
 				document.addEventListener('mouseup', mouseup);
 				e.stopPropagation();
 			}
@@ -240,14 +302,15 @@
 			let rightPoint = createPoint('right');
 			leftPoint.oncontextmenu = (e)=>{e.preventDefault()}
 			rightPoint.oncontextmenu = (e)=>{e.preventDefault()}
-			this.bindControllerPointEvent(leftPoint);
+			// this.bindControllerPointEvent(leftPoint);
 			this.bindControllerPointEvent(rightPoint);
-			drapMaskRef.appendChild(leftPoint);
+			// drapMaskRef.appendChild(leftPoint);
 			drapMaskRef.appendChild(rightPoint);
 		}
 		
 
-		updateDrapMask(pointerEvents){
+		updateDrapMask(pointerEvents, transformOrigin){
+			transformOrigin = transformOrigin || 'left center';
 			let styleObj = {
 				position:'absolute',
 				left:0,
@@ -258,9 +321,8 @@
 				display:'block',
 				cursor:'move',
 				pointerEvents:pointerEvents,
-				transformOrigin:`0px ${this.polygonProps.height/2}px`,
-				transform:`translate(${this.polygonProps.worldTranslate[0]}px, ${this.polygonProps.worldTranslate[1]}px) translate(${this.polygonProps.arrowTranslate[0]}px, ${this.polygonProps.arrowTranslate[1]}px) rotate(${this.polygonProps.arrowRotate}deg)`,
-
+				transformOrigin:transformOrigin,
+				transform:`translate(${this.polygonProps.worldTranslate[0]}px, ${this.polygonProps.worldTranslate[1]}px) translate(${this.polygonProps.arrowTranslate[0]}px, ${this.polygonProps.arrowTranslate[1]}px) rotate(${this.polygonProps.arrowRightRotate}deg) rotate(${this.polygonProps.arrowLeftRotate}deg)`,
 			}
 			for(let i in styleObj) this.drapMaskRef.style[i] = styleObj[i];
 		}
@@ -332,8 +394,8 @@
 					this.tag.setAttribute(attr, attrs[attr].join(' ').toString());	
 					continue;
 				}
-				if(attr == 'worldTranslate' || attr == 'arrowTranslate' || attr == 'arrowRotate'){
-					let _attrs = `translate(${attrs.worldTranslate.toString()}) translate(${attrs.arrowTranslate.toString()}) rotate(${attrs.arrowRotate} ${0} ${10})`;
+				if(attr == 'worldTranslate' || attr == 'arrowTranslate' || attr == 'arrowRightRotate' || attr == 'arrowLeftRotate'){
+					let _attrs = `translate(${attrs.worldTranslate.toString()}) translate(${attrs.arrowTranslate.toString()}) rotate(${attrs.arrowRightRotate}, ${0}, ${10}) rotate(${attrs.arrowLeftRotate}, ${attrs.width}, ${10})`;
 					this.tag.setAttribute('transform', _attrs);
 					continue;
 				}
@@ -366,20 +428,26 @@
 	let PD = [initX-10, initH-7];
 	let initPoints = [PO1, PC, PA, PX, PB, PD, PO2];
 	let initWorldTranslate = [0, 0];
-	let initArrayTranslate = [0, 0];
+	let initArrowTranslate = [0, 0];
+	let initArrowOrigin = [0, initY];
 	let createAttrs = ()=>{
 		return {
 			hoverStyle:'fill:green',
 			style:'fill:red',
 			points:JSON.parse(JSON.stringify(initPoints)),
 			// points:[[0, 9], [16, 7], [4,0], [16, 10], [4,20], [16, 20-7], [0, 11]],
+			//世界坐标移动
 			worldTranslate:JSON.parse(JSON.stringify(initWorldTranslate)),
-			arrowTranslate:JSON.parse(JSON.stringify(initArrayTranslate)),
-			arrowRotate:360,
+
+			//模型坐标移动
+			arrowTranslate:JSON.parse(JSON.stringify(initArrowTranslate)),
+			arrowLeftRotate:360,
+			arrowRightRotate:360,
 			polygonArrowRef:null,
 
 			//拖拽对象，非dom
 			hoverDrapRef:null,
+			arrowOrigin:JSON.parse(JSON.stringify(initArrowOrigin)),
 			ox:0,
 			oy:0,
 			dx:0,
@@ -401,22 +469,11 @@
 		if(e.button !=0 ) return;
 		if(currentOBJ.hoverDrapRef && currentOBJ.hoverDrapRef.isHovering) return;
 		currentOBJ = createAttrs();
-		currentOBJ.canHover = false;
+		
 		currentOBJ.ox = e.clientX;
 		currentOBJ.oy = e.clientY-initY;
 		currentOBJ.worldTranslate = [currentOBJ.ox, currentOBJ.oy];
-		currentOBJ.polygon = new createSVG('polygon', currentOBJ);
-
-		//保存引用
-		currentOBJ.polygonArrowRef = currentOBJ.polygon.tag;
 		
-		//绑定hover事件
-		currentOBJ.hoverDrapRef =  PolygonArrowHoverDrap.init(currentOBJ, isHovering);
-
-
-
-
-		svgg.appendChild(currentOBJ.polygon.tag);
 		svg.addEventListener('mousemove', onmousemove);
 		svg.addEventListener('mouseup', onmouseup);
 	}
@@ -434,7 +491,23 @@
 		let newX = Math.sqrt(Math.pow(x, 2) + Math.pow(y, 2));
 
 		//当长度小于最小值
+		if(newX > initX && !currentOBJ.polygon){
+			currentOBJ.polygon = new createSVG('polygon', currentOBJ);
+
+			currentOBJ.canHover = false;
+
+			//保存引用
+			currentOBJ.polygonArrowRef = currentOBJ.polygon.tag;
+			
+			//绑定hover事件
+			currentOBJ.hoverDrapRef =  PolygonArrowHoverDrap.init(currentOBJ, isHovering);
+
+			svgg.appendChild(currentOBJ.polygon.tag);
+		}
+
 		if(newX < initX) newX = initX;
+
+		
 
 		currentOBJ.width = newX;
 
@@ -464,8 +537,8 @@
 		//自动吸附
 		if(newRotate < 182 && newRotate > 178) newRotate = 180;
 		
-		currentOBJ.arrowRotate = newRotate;
-		currentOBJ.polygon.setAttrs(currentOBJ);
+		currentOBJ.arrowRightRotate = newRotate;
+		currentOBJ.polygon && currentOBJ.polygon.setAttrs(currentOBJ);
 	}
 
 	let onmouseup = ()=>{
