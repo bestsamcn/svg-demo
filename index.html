@@ -213,7 +213,7 @@
 			}
 		}
 
-
+		//绑定事件
 		bindClickEvent(){
 			this.domRef.addEventListener('mousedown', e=>{
 				if(e.which != 1) return;
@@ -229,20 +229,162 @@
 			document.querySelector('svg').oncontextmenu = (e)=>{e.preventDefault()}
 		}
 
+		//创建控制点
+		createControllerPoints(drapMaskRef){
+			let createPoint = ({left, top, cursor, align})=>{
+				let point = document.createElement('a');
+				point.style.href= 'javascript:;';
+				point.style.width = point.style.height = '10px';
+				point.style.border = '2px solid red';
+				point.style.boxSizing = 'border-box';
+				point.style.background = '#fff';
+				point.style.borderRadius = '5px';
+				point.style.cursor = cursor;
+				point.style['pointer-events'] = 'all';
+				point.style.position = 'absolute';
+				point.style.left = left+'px';
+				point.style.top = top+'px';
+				point._align = align;
+				return point;
+			}
+
+			let topLeftPoint = createPoint({left:-5, top:-5, cursor:'nwse-resize', align:'topLeft'});
+			let topCenterPoint = createPoint({left:this.width/2-5, cursor:'s-resize', top:-5, align:'topCenter'});
+			let topRightPoint = createPoint({left:this.width-5, cursor:'nesw-resize', top:-5, align:'topRight'});
+			let middleLeftPoint = createPoint({left:-5, top:this.height/2-5, cursor:'e-resize', align:'middleLeft'});
+			let middleRightPoint = createPoint({left:this.width-5, top:this.height/2-5, cursor:'w-resize', align:'middleRight'});
+			let bottomLeftPoint = createPoint({left:-5, top:this.height-5, cursor:'nesw-resize', align:'bottomLeft'});
+			let bottomCenterPoint = createPoint({left:this.width/2-5, top:this.height-5, cursor:'n-resize', align:'bottomCenter'});
+			let bottomRightPoint = createPoint({left:this.width-5, top:this.height-5, cursor:'nwse-resize', align:'bottomRight'});
+			topLeftPoint.oncontextmenu = (e)=>{e.preventDefault()}
+			topCenterPoint.oncontextmenu = (e)=>{e.preventDefault()}
+			topRightPoint.oncontextmenu = (e)=>{e.preventDefault()}
+			middleLeftPoint.oncontextmenu = (e)=>{e.preventDefault()}
+			middleRightPoint.oncontextmenu = (e)=>{e.preventDefault()}
+			bottomLeftPoint.oncontextmenu = (e)=>{e.preventDefault()}
+			bottomCenterPoint.oncontextmenu = (e)=>{e.preventDefault()}
+			bottomRightPoint.oncontextmenu = (e)=>{e.preventDefault()}
+			this.bindControllerPointEvent(topLeftPoint);
+			this.bindControllerPointEvent(topCenterPoint);
+			this.bindControllerPointEvent(topRightPoint);
+			this.bindControllerPointEvent(middleLeftPoint);
+			this.bindControllerPointEvent(middleRightPoint);
+			this.bindControllerPointEvent(bottomLeftPoint);
+			this.bindControllerPointEvent(bottomCenterPoint);
+			this.bindControllerPointEvent(bottomRightPoint);
+			drapMaskRef.appendChild(topLeftPoint);
+			drapMaskRef.appendChild(topCenterPoint);
+			drapMaskRef.appendChild(topRightPoint);
+			drapMaskRef.appendChild(middleLeftPoint);
+			drapMaskRef.appendChild(middleRightPoint);
+			drapMaskRef.appendChild(bottomLeftPoint);
+			drapMaskRef.appendChild(bottomCenterPoint);
+			drapMaskRef.appendChild(bottomRightPoint);
+		}
+
+		//给控制点绑定事件
+		bindControllerPointEvent(point){
+
+			let rightPointMove = e=>{
+				if(!this.canDrap) return;
+				if(e.which != 1) return;
+				e.stopPropagation();
+
+				//辅助三角形旋转角的临边
+				let x = e.clientX - (this.ox + this.arrowTranslate[0]) -10;
+
+				//构成三角形旋转角的对边
+				let y = e.clientY- (this.oy + this.arrowTranslate[1])-this.initData.initY-10;
+				this.dx = e.clientX;
+				this.dy = e.clientY;
+
+				this.svgRef.setAttrs(this);
+				this.updateDrapMask('none');
+			}
+
+			point.onmousedown = e=>{
+				if(e.which !=1 || !this.primitiveManager.isDrawing) return;
+
+				let mouseup = e=>{
+					this.drapMaskRef.style['pointer-events'] = 'all';
+					document.removeEventListener('mousemove', point._align == 'right' && rightPointMove || leftPointMove);
+					document.removeEventListener('mouseup', mouseup);
+					this.canDrap = true;
+				}
+				
+				document.addEventListener('mousemove', point._align == 'right' && rightPointMove || leftPointMove);
+				document.addEventListener('mouseup', mouseup);
+				e.stopPropagation();
+			}
+			
+		}
+
+		//更新遮罩位置
+		updateDrapMask(pointerEvents){
+			let styleObj = {
+				position:'absolute',
+				left:this.x+'px',
+				top:this.y+'px',
+				zIndex:100,
+				width:this.width+'px',
+				height:this.height+'px',
+				display:'block',
+				cursor:'move',
+				pointerEvents:pointerEvents,
+				transform:`translate(${this.rectTranslate[0]}px, ${this.rectTranslate[1]}px)`,
+			}
+			for(let i in styleObj) this.drapMaskRef.style[i] = styleObj[i];
+		}
+
+		//移动事件绑定
+		bindDrapEvent(){
+			this.drapMaskRef.onmousedown = e=>{
+				if(!this.canDrap) return;
+				let x = e.clientX;
+				let y = e.clientY;
+				let disx = 0;
+				let disy = 0;
+				let mousemove = e=>{
+					disx = e.clientX - x;
+					disy = e.clientY - y;
+					x = e.clientX;
+					y = e.clientY;
+
+					console.log(disx, disy)
+
+					//箭头和遮罩移动一致
+					this.drapMaskRef.style.transform = `translate(${this.rectTranslate[0]+disx}px, ${this.rectTranslate[1]+disy}px)`;
+					this.rectTranslate = [this.rectTranslate[0]+disx, this.rectTranslate[1]+disy];
+					this.svgRef.setAttrs(this);
+				}
+
+				let mouseup= e=>{
+
+					//保存移动偏差
+					// this.rectTranslate[0] += disx;
+					// this.rectTranslate[1] += disy;
+					document.removeEventListener('mousemove', mousemove);
+					document.removeEventListener('mouseup', mouseup);
+				}
+				document.addEventListener('mousemove', mousemove);
+				document.addEventListener('mouseup', mouseup);
+			}
+		}
+
 		//创建遮罩
 		createDrapMask(){
 			if(!this.canDrap) return;
 			!this.drapMaskRef && (this.drapMaskRef = document.createElement('div')) & document.querySelector('.svg-hover').appendChild(this.drapMaskRef);
 
-			// this.updateDrapMask('all');
+			this.updateDrapMask('all');
 			document.querySelector('.svg-hover').style.display='block';
 			this.domRef.style = this.style;
 			
 			//创建控制点
-			// this.createControllerPoints(this.drapMaskRef);
+			this.createControllerPoints(this.drapMaskRef);
 			
 			//绑定拖拽事件
-			// this.BindDrapEvent();
+			this.bindDrapEvent();
 
 
 			//点击右键遮罩
@@ -590,7 +732,8 @@
 			let createPoint = (align)=>{
 				let point = document.createElement('a');
 				point.style.href= 'javascript:;';
-				point.style.width = point.style.height = '6px';
+				point.style.width = point.style.height = '10px';
+				point.style.boxSizing = 'border-box';
 				point.style.border = '2px solid red';
 				point.style.background = '#fff';
 				point.style.borderRadius = '10px';
