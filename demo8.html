@@ -96,6 +96,9 @@
 			//遮罩
 			this.drapMaskRef = null;
 			this.preventDefault();
+
+
+			
 		}
 
 		get currentPrimitive(){
@@ -342,6 +345,7 @@
 			this.currentPrimitive.polygon.setAttrs(this.currentPrimitive);
 			this.drapMaskRef && (this.drapMaskRef.style.display='none');
 			this.drapMaskRef.remove();
+			this.drapMaskRef = null;
 			this.currentPrimitive.polygonArrowRef.style = this.currentPrimitive.style;
 		}
 	}
