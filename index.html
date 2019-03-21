@@ -37,7 +37,7 @@
 	}
 </script>
 <meta name="keywords" content="">
-<link hpolygonArrowRef="" rel="stylesheet">
+<link hdomRef="" rel="stylesheet">
 <style>
 	.svg svg, .svg line:hover , .svg path:hover, .svg polygon:hover, .svg rect:hover, .svg circle:hover, .svg ellipse:hover{
 		pointer-events: all;
@@ -71,8 +71,18 @@
 		 */
 		setAttrs(attrs){
 			for(let attr in attrs){
-				if(attr == 'polygonArrowRef' || attr == 'polygon') continue;
-				if(attr == 'points'){
+				
+				
+				//矩形
+				if(attr == 'rectTranslate'){
+					this.tag.setAttribute('transform', `translate(${attrs[attr].join(' ').toString()})`);	
+					continue;
+				}
+
+				
+				//箭头
+				if(attr == 'domRef' || attr == 'polygon') continue;
+				if(attr == 'points' || attr == 'rectTranslate'){
 					this.tag.setAttribute(attr, attrs[attr].join(' ').toString());	
 					continue;
 				}
@@ -86,7 +96,8 @@
 		}
 	}
 
-
+	
+	//图形管理类
 	class PrimitiveManager {
 		constructor(){
 			this.primitives = [];
@@ -104,12 +115,10 @@
 
 				//恢复原始状态
 				primitive.canDrap = false;
-				primitive.hoverStyle = primitive.hoverStyle;
 				primitive['pointer-events'] = 'all';
-
-				primitive.polygon.setAttrs(primitive);
-				primitive.drapMaskRef && (this.drapMaskRef.style.display='none');
-				primitive.polygonArrowRef.style = primitive.style;
+				primitive.svgRef.setAttrs(primitive);
+				primitive.drapMaskRef && (primitive.drapMaskRef.style.display='none');
+				primitive.domRef.style = primitive.style;
 			}
 			if(!!_primitive){
 				_primitive.canDrap = true;
@@ -118,7 +127,8 @@
 		}
 	}
 
-
+	
+	//事件控制类
 	class EventController{
 		constructor(viewer, primitiveManager){
 			this.viewer = viewer;
@@ -156,11 +166,233 @@
 		bindMouseUpEvent(e){}
 	}
 
+	class RectangleFactory{
+		constructor(primitiveProps, primitiveManager){
+			this.type = 'rectancle';
+			this.viewer = primitiveProps.viewer;
+			this.style = primitiveProps.style;
+			this.hoverStyle = primitiveProps.hoverStyle;
+			this.x = primitiveProps.x;
+			this.y = primitiveProps.y;
+			this.originx = primitiveProps.originx;
+			this.originy = primitiveProps.originy;
+			this.width = primitiveProps.width;
+			this.height = primitiveProps.height;
+			this.rectTranslate = primitiveProps.rectTranslate;
+			this.svgRef =null;
+			this.domRef =null;
+			this.drapMaskRef = null;
+			this.canDrap = false;
+			this.shift = primitiveProps.shift;
+			this['pointer-events'] = primitiveProps['pointer-events'];
+			
+			this.primitiveManager = primitiveManager;
+			
+
+			this.create();
+		}
+
+		create(){
+			this.svgRef = new CreateSVG('rect', this);
+			this.domRef = this.svgRef.tag;
+			this.viewer.querySelector('g').appendChild(this.svgRef.tag);
+			
+			this.bindHoverEvent();
+			this.bindClickEvent();
+			this.preventDefault();
+		}
+
+		//绑定hover事件
+		bindHoverEvent(){
+			this.domRef.onmouseenter = ()=>{
+				this.domRef.style = this.hoverStyle;
+
+			}
+			this.domRef.onmouseleave = ()=>{
+				this.domRef.style = this.style;
+			}
+		}
+
+
+		bindClickEvent(){
+			this.domRef.addEventListener('mousedown', e=>{
+				if(e.which != 1) return;
+				this.primitiveManager.currentPrimitive = this;
+				this.primitiveManager.isDrawing = true;
+				this.createDrapMask();
+				e.stopPropagation();
+			});
+		}
+
+		//阻挡右键默认菜单
+		preventDefault(){
+			document.querySelector('svg').oncontextmenu = (e)=>{e.preventDefault()}
+		}
+
+		//创建遮罩
+		createDrapMask(){
+			if(!this.canDrap) return;
+			!this.drapMaskRef && (this.drapMaskRef = document.createElement('div')) & document.querySelector('.svg-hover').appendChild(this.drapMaskRef);
+
+			// this.updateDrapMask('all');
+			document.querySelector('.svg-hover').style.display='block';
+			this.domRef.style = this.style;
+			
+			//创建控制点
+			// this.createControllerPoints(this.drapMaskRef);
+			
+			//绑定拖拽事件
+			// this.BindDrapEvent();
+
+
+			//点击右键遮罩
+			document.addEventListener('mousedown', this.onDisppear.bind(this));
+		}
+		
+		//消失
+		onDisppear(e){
+			if(e.which != 3) return;
+			this.primitiveManager.isDrawing = false;
+			this['pointer-events'] = 'inherit';
+			this.svgRef.setAttrs(this);
+			this.drapMaskRef && (this.drapMaskRef.style.display='none');
+			this.drapMaskRef && this.drapMaskRef.remove();
+			this.drapMaskRef = null;
+			this.domRef.style = this.style;
+		}
+
+
+	}
+
+	//矩形类
+	class Rectangle extends EventController{
+		constructor(viewer, primitiveManager){
+			super(viewer, primitiveManager);
+			this.viewer = viewer;
+			this.primitiveManager = primitiveManager;
+			this.initData = {
+				viewer:this.viewer,
+				style:'fill:red',
+				x:0,
+				y:0,
+				originx:0,
+				originy:0,
+				width:0,
+				height:0,
+				rectTranslate:[0, 0],
+				svgRef:null,
+				domRef:null,
+				shift:false,
+				canDrap:false,
+				hoverStyle:'fill:green',
+				'pointer-events':'all'
+			}
+
+			this.primitive = null;
+			this.bindShiftEvent();
+		}
+
+		createAttrs(){
+			return {...this.initData};
+		}
+
+		bindMouseDownEvent(e){
+			let x = e.offsetX;
+			let y = e.offsetY;
+			this.primitive = this.createAttrs();
+			this.primitive.x = x;
+			this.primitive.y = y;
+			this.primitive.originx = x;
+			this.primitive.originy = y;
+		}
+		
+		//shift绑定
+		bindShiftEvent(){
+			document.addEventListener('keydown', e=>{
+				if(e.which == 16){
+					this.primitive.shift = true;
+				}
+			});
+			document.addEventListener('keyup', e=>{
+				if(e.which == 16){
+					this.primitive.shift = false;
+				}
+			});
+		}
+
+		bindMouseMoveEvent(e){
+			let x = e.offsetX;
+			let y = e.offsetY;
+			let absy = Math.abs(y-this.primitive.originy);
+			let absx = Math.abs(x-this.primitive.originx);
+			let abs = Math.max(absy, absx);
+
+			//右边
+			if(x > this.primitive.originx){
+
+				//下边
+				if(y > this.primitive.originy){
+					this.primitive.y = this.primitive.originy;
+					this.primitive.x = this.primitive.originx;
+
+				//上边
+				}else{
+					this.primitive.y = this.primitive.originy-(this.primitive.shift ? abs : absy);
+					this.primitive.x = this.primitive.originx;
+				}
+			}
+
+			//左边
+			if(x < this.primitive.originx){
+
+				//下边
+				if(y > this.primitive.originy){
+					this.primitive.x = this.primitive.originx-(this.primitive.shift ? abs : absx);
+					this.primitive.y = this.primitive.originy;
+
+				//上边
+				}else{
+					
+					this.primitive.x = this.primitive.originx-(this.primitive.shift ? abs : absx);
+					this.primitive.y = this.primitive.originy-(this.primitive.shift ? abs : absy);
+
+				}
+			}
+
+			
+			this.primitive.height = absy;
+			this.primitive.width = absx;
+			if(this.primitive.shift){
+				this.primitive.height = Math.max(absy, absx);
+				this.primitive.width = Math.max(absy, absx);
+			}
+			if(absy > 4 && absx > 4 && !this.primitive.svgRef){
+				this.primitive.svgRef = new CreateSVG('rect', this.primitive);
+				this.primitive.domRef = this.primitive.svgRef.tag;
+				this.viewer.querySelector('g').appendChild(this.primitive.svgRef.tag);
+				return;
+			}
+			
+			this.primitive.svgRef && this.primitive.svgRef.setAttrs(this.primitive);
+		}
+
+		bindMouseUpEvent(){
+			if(!this.primitive.svgRef) return false;
+			this.primitive.domRef.remove();
+			this.primitive.domRef = null;
+			this.primitive.svgRef = null;
+			let primitive = new RectangleFactory({...this.primitive}, primitiveManager);
+			primitiveManager.primitives.push(primitive);
+			primitiveManager.currentPrimitive = primitive
+		}
+	}
+
 	
 	//通过参数重新构造箭头
-	class PolygoneArrowFactor{
+	class PolygoneArrowFactory{
 		constructor(primitiveProps, primitiveManager){
 			
+			this.type = 'polygonArrow';
 			this.initData = JSON.parse(JSON.stringify(primitiveProps.initData));
 			this.hoverStyle = primitiveProps.hoverStyle;
 			this.style = primitiveProps.style;
@@ -172,8 +404,8 @@
 			this.arrowRightRotate = primitiveProps.arrowRightRotate;
 
 			//箭头dom
-			this.polygonArrowRef = null;
-			this.polygon = null;
+			this.domRef = null;
+			this.svgRef = null;
 
 			//拖拽对象，非dom
 			this.arrowOrigin = JSON.parse(JSON.stringify(primitiveProps.arrowOrigin));
@@ -197,12 +429,12 @@
 
 		//创建
 		create(){
-			this.polygon = new CreateSVG('polygon', this);
+			this.svgRef = new CreateSVG('polygon', this);
 			this.canDrap = false;
 
 			//保存引用
-			this.polygonArrowRef = this.polygon.tag;
-			this.viewer.querySelector('g').appendChild(this.polygon.tag);
+			this.domRef = this.svgRef.tag;
+			this.viewer.querySelector('g').appendChild(this.svgRef.tag);
 
 			this.bindHoverEvent();
 			this.bindClickEvent();
@@ -211,17 +443,17 @@
 
 		//绑定hover事件
 		bindHoverEvent(){
-			this.polygonArrowRef.onmouseenter = ()=>{
-				this.polygonArrowRef.style = this.hoverStyle;
+			this.domRef.onmouseenter = ()=>{
+				this.domRef.style = this.hoverStyle;
 			}
-			this.polygonArrowRef.onmouseleave = ()=>{
-				this.polygonArrowRef.style = this.style;
+			this.domRef.onmouseleave = ()=>{
+				this.domRef.style = this.style;
 			}
 		}
 
 		//点击箭头，出现控制点遮罩层
 		bindClickEvent(){
-			this.polygonArrowRef.addEventListener('mousedown', e=>{
+			this.domRef.addEventListener('mousedown', e=>{
 				if(e.which != 1) return;
 				this.primitiveManager.currentPrimitive = this;
 				this.primitiveManager.isDrawing = true;
@@ -253,7 +485,7 @@
 					//箭头和遮罩移动一致
 					this.drapMaskRef.style.transform = `translate(${this.worldTranslate[0]}px, ${this.worldTranslate[1]}px) translate(${this.arrowTranslate[0]+disx}px, ${this.arrowTranslate[1]+disy}px) rotate(${this.arrowRightRotate}deg)`;
 					this.arrowTranslate = [this.arrowTranslate[0]+disx, this.arrowTranslate[1]+disy];
-					this.polygon.setAttrs(this);
+					this.svgRef.setAttrs(this);
 				}
 
 				let mouseup= e=>{
@@ -329,7 +561,7 @@
 				if(newRotate < 182 && newRotate > 178) newRotate = 180;
 
 				this.arrowRightRotate = newRotate;
-				this.polygon.setAttrs(this);
+				this.svgRef.setAttrs(this);
 				this.updateDrapMask('none', `left center`);
 
 				
@@ -404,7 +636,7 @@
 
 			this.updateDrapMask('all');
 			document.querySelector('.svg-hover').style.display='block';
-			this.polygonArrowRef.style = this.style;
+			this.domRef.style = this.style;
 			
 			//创建控制点
 			this.createControllerPoints(this.drapMaskRef);
@@ -422,11 +654,11 @@
 			if(e.which != 3) return;
 			this.primitiveManager.isDrawing = false;
 			this['pointer-events'] = 'inherit';
-			this.polygon.setAttrs(this);
+			this.svgRef.setAttrs(this);
 			this.drapMaskRef && (this.drapMaskRef.style.display='none');
 			this.drapMaskRef && this.drapMaskRef.remove();
 			this.drapMaskRef = null;
-			this.polygonArrowRef.style = this.style;
+			this.domRef.style = this.style;
 		}
 	}
 
@@ -500,8 +732,10 @@
 				arrowRightRotate:360,
 
 				//箭头dom
-				polygonArrowRef:null,
-				polygon:null,
+				domRef:null,
+
+				//CreateSVG
+				svgRef:null,
 
 				//拖拽对象，非dom
 				arrowOrigin:JSON.parse(JSON.stringify(this.initData.arrowOrigin)),
@@ -538,14 +772,14 @@
 			let newX = Math.sqrt(Math.pow(x, 2) + Math.pow(y, 2));
 			
 			//当长度小于最小值
-			if(newX > this.initData.initX && !this.primitive.polygon){
-				this.primitive.polygon = new CreateSVG('polygon', this.primitive);
+			if(newX > this.initData.initX && !this.primitive.svgRef){
+				this.primitive.svgRef = new CreateSVG('polygon', this.primitive);
 
 				this.primitive.canDrap = false;
 
 				//保存引用
-				this.primitive.polygonArrowRef = this.primitive.polygon.tag;
-				this.viewer.querySelector('g').appendChild(this.primitive.polygon.tag);
+				this.primitive.domRef = this.primitive.svgRef.tag;
+				this.viewer.querySelector('g').appendChild(this.primitive.svgRef.tag);
 			}
 
 			if(newX < this.initData.initX) newX = this.initData.initX;
@@ -581,21 +815,22 @@
 			if(newRotate < 182 && newRotate > 178) newRotate = 180;
 			
 			this.primitive.arrowRightRotate = newRotate;
-			this.primitive.polygon && this.primitive.polygon.setAttrs(this.primitive);
+			this.primitive.svgRef && this.primitive.svgRef.setAttrs(this.primitive);
 		}
 		
 		//释放鼠标左键
 		bindMouseUpEvent(e){
-			if(!this.primitive.polygon) return false;
-			this.primitive.polygonArrowRef.remove();
-			this.primitive.polygonArrowRef = null;
-			this.primitive.polygon = null;
-			let primitive = new PolygoneArrowFactor({...this.primitive}, primitiveManager);
+			if(!this.primitive.svgRef) return false;
+			this.primitive.domRef.remove();
+			this.primitive.domRef = null;
+			this.primitive.svgRef = null;
+			let primitive = new PolygoneArrowFactory({...this.primitive}, primitiveManager);
 			primitiveManager.primitives.push(primitive);
 			primitiveManager.currentPrimitive = primitive;
 		}
 	}
 	window.primitiveManager = new PrimitiveManager();
-	new PolygonArrow(svg, primitiveManager);
+	new Rectangle(svg, primitiveManager);
+	// new PolygonArrow(svg, primitiveManager);
 
 </script>
