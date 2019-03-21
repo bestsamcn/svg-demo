@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+<title>all in one</title>
+<script>
+
+	//求2d向量夹角
+	var angleVector2d = (a, b)=>{
+	  let x1 = a[0],
+	    y1 = a[1],
+	    x2 = b[0],
+	    y2 = b[1];
+	  
+	  let len1 = x1*x1 + y1*y1;
+	  if (len1 > 0) {
+	    len1 = 1 / Math.sqrt(len1);
+	  }
+	  
+	  let len2 = x2*x2 + y2*y2;
+	  if (len2 > 0) {
+	    len2 = 1 / Math.sqrt(len2);
+	  }
+	  
+	  let cosine = (x1 * x2 + y1 * y2) * len1 * len2;
+	  
+	  
+	  if(cosine > 1.0) {
+	    return 0;
+	  }
+	  else if(cosine < -1.0) {
+	    return Math.PI;
+	  } else {
+	    return Math.acos(cosine);
+	  }
+	}
+</script>
+<meta name="keywords" content="">
+<link hpolygonArrowRef="" rel="stylesheet">
+<style>
+	.svg svg, .svg line:hover , .svg path:hover, .svg polygon:hover, .svg rect:hover, .svg circle:hover, .svg ellipse:hover{
+		pointer-events: all;
+	}
+</style>
+</head>
+<body>
+    <div class="svg" style="width:600px; height:600px;border:1px solid #333; position: relative;">
+    	<svg pointer-events="painted" width="600" height="600" id="svg" style="position:absolute; left:0px; top:0px;">
+    		<g id="ggg" pointer-events="inherit"></g>
+
+    	</svg>
+    	<div style="position: absolute;left:0;top:0; width:100%; height:100%; pointer-events:none;" class="svg-hover"></div>
+    </div>
+</body>
+</html>
+<script>
+	let svg = document.querySelector('#svg');
+	let svgg = svg.querySelector('g');
+
+	class CreateSVG{
+		constructor(tag, attrs){
+			this.tag = document.createElementNS('http://www.w3.org/2000/svg', tag);
+			this.attrs = attrs;
+			this.setAttrs(attrs);
+		}
+
+		/**
+		 * 设置属性对象
+		 * @param {Object} attrs 属性名
+		 */
+		setAttrs(attrs){
+			for(let attr in attrs){
+				if(attr == 'polygonArrowRef' || attr == 'polygon') continue;
+				if(attr == 'points'){
+					this.tag.setAttribute(attr, attrs[attr].join(' ').toString());	
+					continue;
+				}
+				if(attr == 'worldTranslate' || attr == 'arrowTranslate' || attr == 'arrowRightRotate' || attr == 'arrowLeftRotate'){
+					let _attrs = `translate(${attrs.worldTranslate.toString()}) translate(${attrs.arrowTranslate.toString()}) rotate(${attrs.arrowRightRotate}, ${0}, ${10}) rotate(${attrs.arrowLeftRotate}, ${attrs.width}, ${10})`;
+					this.tag.setAttribute('transform', _attrs);
+					continue;
+				}
+				this.tag.setAttribute(attr, attrs[attr]);
+	        }
+		}
+	}
+
+
+	class PrimitiveManager {
+		constructor(){
+			this.primitives = [];
+			this._currentPrimitive = null;
+			this.isDrawing = false;
+
+		}
+
+		get currentPrimitive(){
+			return this._currentPrimitive;
+		}
+		set currentPrimitive(_primitive){
+			for(let primitive of this.primitives){
+				this.isDrawing = false;
+
+				//恢复原始状态
+				primitive.canDrap = false;
+				primitive.hoverStyle = primitive.hoverStyle;
+				primitive['pointer-events'] = 'all';
+
+				primitive.polygon.setAttrs(primitive);
+				primitive.drapMaskRef && (this.drapMaskRef.style.display='none');
+				primitive.polygonArrowRef.style = primitive.style;
+			}
+			if(!!_primitive){
+				_primitive.canDrap = true;
+			}
+			this._currentPrimitive = _primitive;
+		}
+	}
+
+
+	class EventController{
+		constructor(viewer, primitiveManager){
+			this.viewer = viewer;
+			this.primitiveManager = primitiveManager;
+			this.viewer.addEventListener('mousedown', this._bindMouseDownEvent.bind(this));
+		}
+		
+		_bindMouseDownEvent(e){
+			if(e.which !=1 ) return false;
+			if(this.primitiveManager.isDrawing) return;
+			this.primitiveManager.isDrawing = true;
+			this.bindMouseDownEvent && this.bindMouseDownEvent(e);
+
+			
+			let bindMouseMoveEvent = (e)=>{
+				if(e.which !=1 ) return false;
+				if(!this.primitiveManager.isDrawing) return;
+				this.bindMouseMoveEvent && this.bindMouseMoveEvent(e);
+			}
+
+			let bindMouseUpEvent = (e)=>{
+				if(e.which !=1 ) return false;
+				this.primitiveManager.isDrawing = false;
+				this.bindMouseUpEvent && this.bindMouseUpEvent(e);
+
+				document.removeEventListener('mousemove', bindMouseMoveEvent);
+				document.removeEventListener('mouseup', bindMouseUpEvent);
+			}
+			
+			document.addEventListener('mousemove', bindMouseMoveEvent);
+			document.addEventListener('mouseup', bindMouseUpEvent);
+		}
+		bindMouseDownEvent(e){}
+		bindMouseMoveEvent(e){}
+		bindMouseUpEvent(e){}
+	}
+
+	
+	//通过参数重新构造箭头
+	class PolygoneArrowFactor{
+		constructor(primitiveProps, primitiveManager){
+			
+			this.initData = JSON.parse(JSON.stringify(primitiveProps.initData));
+			this.hoverStyle = primitiveProps.hoverStyle;
+			this.style = primitiveProps.style;
+			this.points = JSON.parse(JSON.stringify(primitiveProps.points));
+
+			this.worldTranslate = JSON.parse(JSON.stringify(primitiveProps.worldTranslate));
+			this.arrowTranslate = JSON.parse(JSON.stringify(primitiveProps.arrowTranslate));
+			this.arrowLeftRotate = primitiveProps.arrowLeftRotate;
+			this.arrowRightRotate = primitiveProps.arrowRightRotate;
+
+			//箭头dom
+			this.polygonArrowRef = null;
+			this.polygon = null;
+
+			//拖拽对象，非dom
+			this.arrowOrigin = JSON.parse(JSON.stringify(primitiveProps.arrowOrigin));
+			this.ox = primitiveProps.ox;//箭头起始点世界坐标x
+			this.oy = primitiveProps.oy;//箭头起始点世界坐标y
+			this.dx = primitiveProps.dx;//箭头终点世界坐标x
+			this.dy = primitiveProps.dy;//箭头终点世界坐标
+			this.width = primitiveProps.width;
+			this.height = primitiveProps.height;
+			this.canDrap = primitiveProps.canDrap;
+			this.isDrawing = primitiveProps.isDrawing;
+			this['pointer-events'] = primitiveProps['pointer-events'];
+
+
+
+
+			this.primitiveManager = primitiveManager;
+			this.viewer = primitiveProps.viewer;
+			this.create();
+		}
+
+		//创建
+		create(){
+			this.polygon = new CreateSVG('polygon', this);
+			this.canDrap = false;
+
+			//保存引用
+			this.polygonArrowRef = this.polygon.tag;
+			this.viewer.querySelector('g').appendChild(this.polygon.tag);
+
+			this.bindHoverEvent();
+			this.bindClickEvent();
+			this.preventDefault();
+		}
+
+		//绑定hover事件
+		bindHoverEvent(){
+			this.polygonArrowRef.onmouseenter = ()=>{
+				this.polygonArrowRef.style = this.hoverStyle;
+			}
+			this.polygonArrowRef.onmouseleave = ()=>{
+				this.polygonArrowRef.style = this.style;
+			}
+		}
+
+		//点击箭头，出现控制点遮罩层
+		bindClickEvent(){
+			this.polygonArrowRef.addEventListener('mousedown', e=>{
+				if(e.which != 1) return;
+				this.primitiveManager.currentPrimitive = this;
+				this.primitiveManager.isDrawing = true;
+				this.createDrapMask();
+				e.stopPropagation();
+			});
+		}
+
+
+		//阻挡右键默认菜单
+		preventDefault(){
+			document.querySelector('svg').oncontextmenu = (e)=>{e.preventDefault()}
+		}
+
+		//遮罩随鼠标移动
+		BindDrapEvent(){
+			this.drapMaskRef.onmousedown = e=>{
+				if(!this.canDrap) return;
+				let x = e.clientX;
+				let y = e.clientY;
+				let disx = 0;
+				let disy = 0;
+				let mousemove = e=>{
+					disx = e.clientX - x;
+					disy = e.clientY - y;
+					x = e.clientX;
+					y = e.clientY;
+
+					//箭头和遮罩移动一致
+					this.drapMaskRef.style.transform = `translate(${this.worldTranslate[0]}px, ${this.worldTranslate[1]}px) translate(${this.arrowTranslate[0]+disx}px, ${this.arrowTranslate[1]+disy}px) rotate(${this.arrowRightRotate}deg)`;
+					this.arrowTranslate = [this.arrowTranslate[0]+disx, this.arrowTranslate[1]+disy];
+					this.polygon.setAttrs(this);
+				}
+
+				let mouseup= e=>{
+
+					//保存移动偏差
+					this.arrowTranslate[0] += disx;
+					this.arrowTranslate[1] += disy;
+					document.removeEventListener('mousemove', mousemove);
+					document.removeEventListener('mouseup', mouseup);
+				}
+				document.addEventListener('mousemove', mousemove);
+				document.addEventListener('mouseup', mouseup);
+			}
+		}
+		
+		//给控制点绑定事件
+		bindControllerPointEvent(point){
+			let { polygon } = this;
+
+			/**
+			 * 1. 确定左右点
+			 * 2. 确定旋转基点
+			 * 3. 移动后，修改设置 箭头， 遮罩的属性，并保存
+			 */
+			
+			let rightPointMove = e=>{
+				if(!this.canDrap) return;
+				if(e.which != 1) return;
+				e.stopPropagation();
+
+				//辅助三角形旋转角的临边
+				let x = e.clientX - (this.ox + this.arrowTranslate[0]) -10;
+
+				//构成三角形旋转角的对边
+				let y = e.clientY- (this.oy + this.arrowTranslate[1])-this.initData.initY-10;
+				this.dx = e.clientX;
+				this.dy = e.clientY;
+
+				//勾股定理，这个就是旋转后的width
+				let newX = Math.sqrt(Math.pow(x, 2) + Math.pow(y, 2));
+
+				//当长度小于最小值
+				if(newX < this.initData.initX) newX = this.initData.initX;
+
+				this.width = newX;
+
+				//只修改x值，也就是修改长度
+				this.points[3][0] = newX;
+				this.points[1][0] = newX- this.initData.cornCDX;
+				this.points[2][0] = newX- this.initData.cornABX;
+				this.points[4][0] = newX- this.initData.cornABX;
+				this.points[5][0] = newX- this.initData.cornCDX;
+
+				
+				//定义向量，求夹角		
+				let newVector = [x, y];
+				let oldVector = [this.ox, 0];
+
+				let angle = angleVector2d(newVector, oldVector);
+				let newRotate = angle*180/Math.PI;
+
+
+				//自动吸附到0度
+				if(newRotate < 2) newRotate = 0;
+				
+				//当鼠标移动到初始箭头上方时
+				if(e.clientY < this.oy + this.arrowTranslate[1]){
+					newRotate = 360 - newRotate;
+				}
+
+
+				//自动吸附
+				if(newRotate < 182 && newRotate > 178) newRotate = 180;
+
+				this.arrowRightRotate = newRotate;
+				this.polygon.setAttrs(this);
+				this.updateDrapMask('none', `left center`);
+
+				
+			}
+
+			point.onmousedown = e=>{
+				if(e.which !=1 || !this.primitiveManager.isDrawing) return;
+
+				let mouseup = e=>{
+					this.drapMaskRef.style['pointer-events'] = 'all';
+					document.removeEventListener('mousemove', point._align == 'right' && rightPointMove || leftPointMove);
+					document.removeEventListener('mouseup', mouseup);
+					this.canDrap = true;
+				}
+				
+				document.addEventListener('mousemove', point._align == 'right' && rightPointMove || leftPointMove);
+				document.addEventListener('mouseup', mouseup);
+				e.stopPropagation();
+			}
+			
+		}
+
+
+		//创建两个移动点
+		createControllerPoints(drapMaskRef){
+			let createPoint = (align)=>{
+				let point = document.createElement('a');
+				point.style.href= 'javascript:;';
+				point.style.width = point.style.height = '6px';
+				point.style.border = '2px solid red';
+				point.style.background = '#fff';
+				point.style.borderRadius = '10px';
+				point.style.cursor = 'initial';
+				point.style['pointer-events'] = 'all';
+				point.style.position = 'absolute';
+				point.style.top = '50%';
+				point.style.marginTop = '-5px';
+				point._align = align;
+				align == 'left' && (point.style.left = '-5px') || (point.style.right = '-5px');
+				return point;
+			}
+			let leftPoint = createPoint('left');
+			let rightPoint = createPoint('right');
+			rightPoint.oncontextmenu = (e)=>{e.preventDefault()}
+			this.bindControllerPointEvent(rightPoint);
+			drapMaskRef.appendChild(rightPoint);
+		}
+		
+		//更新遮罩位置
+		updateDrapMask(pointerEvents, transformOrigin){
+			transformOrigin = transformOrigin || 'left center';
+			let styleObj = {
+				position:'absolute',
+				left:0,
+				top:0,
+				zIndex:100,
+				width:this.width+'px',
+				height:this.height+'px',
+				display:'block',
+				cursor:'move',
+				pointerEvents:pointerEvents,
+				transformOrigin:transformOrigin,
+				transform:`translate(${this.worldTranslate[0]}px, ${this.worldTranslate[1]}px) translate(${this.arrowTranslate[0]}px, ${this.arrowTranslate[1]}px) rotate(${this.arrowRightRotate}deg) rotate(${this.arrowLeftRotate}deg)`,
+			}
+			for(let i in styleObj) this.drapMaskRef.style[i] = styleObj[i];
+		}
+
+		//创建遮罩
+		createDrapMask(){
+			if(!this.canDrap) return;
+			!this.drapMaskRef && (this.drapMaskRef = document.createElement('div')) & document.querySelector('.svg-hover').appendChild(this.drapMaskRef);
+
+			this.updateDrapMask('all');
+			document.querySelector('.svg-hover').style.display='block';
+			this.polygonArrowRef.style = this.style;
+			
+			//创建控制点
+			this.createControllerPoints(this.drapMaskRef);
+			
+			//绑定拖拽事件
+			this.BindDrapEvent();
+
+
+			//点击右键遮罩
+			document.addEventListener('mousedown', this.onDisppear.bind(this));
+		}
+		
+		//消失
+		onDisppear(e){
+			if(e.which != 3) return;
+			this.primitiveManager.isDrawing = false;
+			this['pointer-events'] = 'inherit';
+			this.polygon.setAttrs(this);
+			this.drapMaskRef && (this.drapMaskRef.style.display='none');
+			this.drapMaskRef && this.drapMaskRef.remove();
+			this.drapMaskRef = null;
+			this.polygonArrowRef.style = this.style;
+		}
+	}
+
+	
+	//绘制箭头
+	class PolygonArrow extends EventController{
+		constructor(viewer, primitiveManager){
+			super(viewer, primitiveManager);
+			this.primitiveManager = primitiveManager;
+
+			/********************************/
+			/*	        	  A	 			*/	
+			/*			  	  | C 			*/
+			/*	O1		  		|			*/
+			/*	O----------------|-----X 	*/			  		
+			/*	02		  		|			*/
+			/*			  	  | D			*/
+			/*	          	  B				*/
+			/********************************/
+
+			let initY = 10;
+			let initX = 16;
+			let initH = 20;
+			let cornABX = 12;
+			let cornCDX = 10;	
+			let PO1 = [0, initY-1];
+			let PO2 = [0, initY+1];
+			let PX = [initX, initY];
+			let PA = [initX-12, 0];
+			let PB = [initX-12, initH];
+			let PC = [initX-10, 7];
+			let PD = [initX-10, initH-7];
+			let initPoints = [PO1, PC, PA, PX, PB, PD, PO2];
+			let initWorldTranslate = [0, 0];
+			let initArrowTranslate = [0, 0];
+			let initArrowOrigin = [0, initY];
+
+
+			this.initData = {
+				initX:initX,
+				initY:initY,
+				cornABX:cornABX,
+				cornCDX:cornCDX,
+				points:initPoints,
+				worldTranslate:initWorldTranslate,
+				arrowTranslate:initArrowTranslate,
+				arrowOrigin:initArrowOrigin,
+				width:initX,
+				height:initH,
+			}
+
+			
+			this.primitive = null;
+		}
+		
+		//初始化属性
+		createAttrs(){
+			return {
+				viewer:this.viewer,
+				initData:JSON.parse(JSON.stringify(this.initData)),
+				hoverStyle:'fill:green',
+				style:'fill:red',
+				points:JSON.parse(JSON.stringify(this.initData.points)),
+				// points:[[0, 9], [16, 7], [4,0], [16, 10], [4,20], [16, 20-7], [0, 11]],
+				//世界坐标移动
+				worldTranslate:JSON.parse(JSON.stringify(this.initData.worldTranslate)),
+
+				//模型坐标移动
+				arrowTranslate:JSON.parse(JSON.stringify(this.initData.arrowTranslate)),
+				arrowLeftRotate:360,
+				arrowRightRotate:360,
+
+				//箭头dom
+				polygonArrowRef:null,
+				polygon:null,
+
+				//拖拽对象，非dom
+				arrowOrigin:JSON.parse(JSON.stringify(this.initData.arrowOrigin)),
+				ox:0,//箭头起始点世界坐标x
+				oy:0,//箭头起始点世界坐标y
+				dx:0,//箭头终点世界坐标x
+				dy:0,//箭头终点世界坐标
+				width:this.initData.width,
+				height:this.initData.height,
+				canDrap:false,
+				isDrawing:false,
+				'pointer-events':"inherit"
+			}
+		}
+		
+		//绘制按下鼠标左键
+		bindMouseDownEvent(e){
+			this.primitive = this.createAttrs();
+			this.primitive.ox = e.clientX;
+			this.primitive.oy = e.clientY- this.initData.initY;
+			this.primitive.worldTranslate = [this.primitive.ox, this.primitive.oy];
+		}
+		
+		
+		//绘制按下鼠标左键后移动
+		bindMouseMoveEvent(e){
+			let x = e.clientX - this.primitive.ox;
+			let y = e.clientY- this.primitive.oy - this.initData.initY;
+
+			this.primitive.dx = e.clientX;
+			this.primitive.dy = e.clientY;
+
+			//勾股定理
+			let newX = Math.sqrt(Math.pow(x, 2) + Math.pow(y, 2));
+			
+			//当长度小于最小值
+			if(newX > this.initData.initX && !this.primitive.polygon){
+				this.primitive.polygon = new CreateSVG('polygon', this.primitive);
+
+				this.primitive.canDrap = false;
+
+				//保存引用
+				this.primitive.polygonArrowRef = this.primitive.polygon.tag;
+				this.viewer.querySelector('g').appendChild(this.primitive.polygon.tag);
+			}
+
+			if(newX < this.initData.initX) newX = this.initData.initX;
+
+			
+
+			this.primitive.width = newX;
+
+			//只修改x值，也就是修改长度
+			this.primitive.points[3][0] = newX;
+			this.primitive.points[1][0] = newX-this.initData.cornCDX;
+			this.primitive.points[2][0] = newX-this.initData.cornABX;
+			this.primitive.points[4][0] = newX-this.initData.cornABX;
+			this.primitive.points[5][0] = newX-this.initData.cornCDX;
+
+			
+			//定义向量，求夹角		
+			let newVector = [x, y];
+			let oldVector = [this.primitive.ox, 0];
+
+			let angle = angleVector2d(newVector, oldVector);
+			let newRotate = angle*180/Math.PI;
+			
+			//自动吸附到0度
+			if(newRotate < 2) newRotate = 0;
+			
+			//当鼠标移动到初始箭头上方时
+			if(e.clientY < this.primitive.oy + this.primitive.arrowTranslate[1]){
+				newRotate = 360 - newRotate;
+			}
+
+			//自动吸附
+			if(newRotate < 182 && newRotate > 178) newRotate = 180;
+			
+			this.primitive.arrowRightRotate = newRotate;
+			this.primitive.polygon && this.primitive.polygon.setAttrs(this.primitive);
+		}
+		
+		//释放鼠标左键
+		bindMouseUpEvent(e){
+			if(!this.primitive.polygon) return false;
+			this.primitive.polygonArrowRef.remove();
+			this.primitive.polygonArrowRef = null;
+			this.primitive.polygon = null;
+			let primitive = new PolygoneArrowFactor({...this.primitive}, primitiveManager);
+			primitiveManager.primitives.push(primitive);
+			primitiveManager.currentPrimitive = primitive;
+		}
+	}
+	window.primitiveManager = new PrimitiveManager();
+	new PolygonArrow(svg, primitiveManager);
+
+</script>

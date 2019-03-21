@@ -336,7 +336,6 @@
 			document.addEventListener('mousedown', this.onDisppear.bind(this));
 		}
 		
-
 		//消失
 		onDisppear(e){
 			if(e.which != 3) return;
@@ -458,7 +457,6 @@
 				polygonArrowRef:null,
 
 				//拖拽对象，非dom
-				hoverDrapRef:null,
 				arrowOrigin:JSON.parse(JSON.stringify(this.initData.arrowOrigin)),
 				ox:0,//箭头起始点世界坐标x
 				oy:0,//箭头起始点世界坐标y
@@ -475,7 +473,6 @@
 		//绘制按下鼠标左键
 		bindMouseDownEvent(e){
 			this.primitive = this.createAttrs();
-			
 			this.primitive.ox = e.clientX;
 			this.primitive.oy = e.clientY- this.initData.initY;
 			this.primitive.worldTranslate = [this.primitive.ox, this.primitive.oy];
@@ -540,9 +537,7 @@
 			this.primitive.polygon && this.primitive.polygon.setAttrs(this.primitive);
 		}
 		
-		
-
-		
+		//释放鼠标左键
 		bindMouseUpEvent(e){
 			if(!this.primitive.polygon) return false;
 			this.primitive.initData = this.initData;
