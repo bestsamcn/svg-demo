@@ -187,6 +187,8 @@
 			this['pointer-events'] = primitiveProps['pointer-events'];
 			
 			this.primitiveManager = primitiveManager;
+
+			this.controllerPoints = [];
 			
 
 			this.create();
@@ -244,10 +246,16 @@
 			document.querySelector('svg').oncontextmenu = (e)=>{e.preventDefault()}
 		}
 		
+		//更新控制点，一把梭
+		updateControllerPoints(){
+			for(let point of this.controllerPoints){
+				point.remove();
+			}
+			this.createControllerPoints();
+		}
 
 		//创建控制点
-		createControllerPoints(drapMaskRef){
-
+		createControllerPoints(){
 
 			/**
 			 * 创建控制点
@@ -300,14 +308,15 @@
 			this.bindControllerPointEvent(bottomLeftPoint);
 			this.bindControllerPointEvent(bottomCenterPoint);
 			this.bindControllerPointEvent(bottomRightPoint);
-			drapMaskRef.appendChild(topLeftPoint);
-			drapMaskRef.appendChild(topCenterPoint);
-			drapMaskRef.appendChild(topRightPoint);
-			drapMaskRef.appendChild(middleLeftPoint);
-			drapMaskRef.appendChild(middleRightPoint);
-			drapMaskRef.appendChild(bottomLeftPoint);
-			drapMaskRef.appendChild(bottomCenterPoint);
-			drapMaskRef.appendChild(bottomRightPoint);
+			this.drapMaskRef.appendChild(topLeftPoint);
+			this.drapMaskRef.appendChild(topCenterPoint);
+			this.drapMaskRef.appendChild(topRightPoint);
+			this.drapMaskRef.appendChild(middleLeftPoint);
+			this.drapMaskRef.appendChild(middleRightPoint);
+			this.drapMaskRef.appendChild(bottomLeftPoint);
+			this.drapMaskRef.appendChild(bottomCenterPoint);
+			this.drapMaskRef.appendChild(bottomRightPoint);
+			this.controllerPoints = [topLeftPoint, topRightPoint, middleLeftPoint, middleLeftPoint, bottomLeftPoint, bottomCenterPoint, bottomRightPoint];
 		}
 
 		//给控制点绑定事件
@@ -347,27 +356,69 @@
 				let idx = 0;
 				let idy = 0;
 
+				let tox = this.x+this.rectTranslate[0];
+				let toy = this.y+this.rectTranslate[1];
 
 				let mousemove = e=>{
 					if(!this.canDrap) return;
 					if(e.which != 1) return;
 					e.stopPropagation();
+
+					if(this.shift){
+						
+						let x = e.clientX;
+						let y = e.clientY;
+
+						let absy = Math.abs(y- toy);
+						let absx = Math.abs(x- tox);
+						let abs = Math.max(absy, absx);
+
+						//右边
+						if(x > tox){
+
+							//下边
+							if(y > toy){
+								this.y = toy;
+								this.x = tox;
+
+							//上边
+							}else{
+								this.y = toy-(this.shift ? abs : absy);
+								this.x = tox;
+							}
+						}
+
+						//左边
+						if(x < tox){
+
+							//下边
+							if(y > toy){
+								this.x = tox-(this.shift ? abs : absx);
+								this.y = toy;
+
+							//上边
+							}else{
+								this.x = tox-(this.shift ? abs : absx);
+								this.y = toy-(this.shift ? abs : absy);
+							}
+						}
+						this.height = Math.max(absy, absx);
+						this.width = Math.max(absy, absx)
+						this.svgRef.setAttrs(this);
+						this.updateDrapMask('none');
+						return;
+					}
+					
 					
 					let disx = e.clientX - ox;
 					let disy = e.clientY - oy;
-					console.log(disx, disy, 'ddddd')
 					ox = e.clientX;
 					oy = e.clientY;
 					let absx = Math.abs(disx);
 					let absy = Math.abs(disy);
 
 
-					if(this.shift){
-						let max = Math.max(this.width, this.height);
-						this.width = this.height = max;	
-						disx = disy = Math.max(disx, disy);	
-					}
-
+					
 
 					if(affects.x){
 						this.x += disx;
@@ -383,8 +434,10 @@
 					}
 
 					if(this.height < 0){
-						this.y -= this.height;
+
+						//清空高度和偏移
 						this.height = 0;
+						this.rectTranslate[1] = 0;
 						isReverseY = idy%2 ? false : true;
 						idy++;
 						affects.height = -affects.height;
@@ -394,25 +447,21 @@
 
 					//当负数时，启动逆转
 					if(this.width < 0){
-						this.x -= this.width;
+
+						//清空宽度和偏移
 						this.width = 0;
+						this.rectTranslate[0] = 0;
 						isReverseX  = idx%2 ? false : true;
 						idx++;
 						affects.width = -affects.width;
 						return;
-						
 					}
 
-				
-					
 					//x,y轴已经逆转，需要启动偏移
 					if(isReverseX){
-						if(this.width <= 0) disx = 0;
 						this.rectTranslate[0] = this.rectTranslate[0]-affects.width*disx;
-
 					}
 					if(isReverseY){
-						if(this.height <= 0) disy = 0;
 						this.rectTranslate[1] = this.rectTranslate[1]-affects.height*disy;
 					}
 
@@ -424,6 +473,10 @@
 					this.drapMaskRef.style['pointer-events'] = 'all';
 					document.removeEventListener('mousemove', mousemove);
 					document.removeEventListener('mouseup', mouseup);
+					// this.originx = this.x;
+					// this.originy = this.y;
+					//更新控制点，防止控制点变换后异常
+					this.updateControllerPoints();
 					this.canDrap = true;
 				}
 				
@@ -498,7 +551,7 @@
 			this.domRef.style = this.style;
 			
 			//创建控制点
-			this.createControllerPoints(this.drapMaskRef);
+			this.createControllerPoints();
 			
 			//绑定拖拽事件
 			this.bindDrapEvent();
@@ -557,8 +610,8 @@
 		}
 
 		bindMouseDownEvent(e){
-			let x = e.offsetX;
-			let y = e.offsetY;
+			let x = e.clientX;
+			let y = e.clientY;
 			this.primitive = this.createAttrs();
 			this.primitive.x = x;
 			this.primitive.y = y;
@@ -581,8 +634,8 @@
 		}
 
 		bindMouseMoveEvent(e){
-			let x = e.offsetX;
-			let y = e.offsetY;
+			let x = e.clientX;
+			let y = e.clientY;
 			let absy = Math.abs(y-this.primitive.originy);
 			let absx = Math.abs(x-this.primitive.originx);
 			let abs = Math.max(absy, absx);
