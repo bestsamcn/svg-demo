@@ -200,6 +200,21 @@
 			this.bindHoverEvent();
 			this.bindClickEvent();
 			this.preventDefault();
+			this.bindShiftEvent();
+		}
+
+		//shift绑定
+		bindShiftEvent(){
+			document.addEventListener('keydown', e=>{
+				if(e.which == 16){
+					this.shift = true;
+				}
+			});
+			document.addEventListener('keyup', e=>{
+				if(e.which == 16){
+					this.shift = false;
+				}
+			});
 		}
 
 		//绑定hover事件
@@ -228,10 +243,22 @@
 		preventDefault(){
 			document.querySelector('svg').oncontextmenu = (e)=>{e.preventDefault()}
 		}
+		
 
 		//创建控制点
 		createControllerPoints(drapMaskRef){
-			let createPoint = ({left, top, cursor, align})=>{
+
+
+			/**
+			 * 创建控制点
+			 * @param  {String} options.left    左偏移
+			 * @param  {String} options.top     上偏移
+			 * @param  {String} options.cursor  鼠标类型
+			 * @param  {String} options.align   位置，只做别名，无其他作用
+			 * @param  {String} options.affects 影响范围，0-无影响，1-正相关， -1-负相关
+			 * @return {String}                 [description]
+			 */
+			let createPoint = ({left, top, cursor, align, affects})=>{
 				let point = document.createElement('a');
 				point.style.href= 'javascript:;';
 				point.style.width = point.style.height = '10px';
@@ -242,20 +269,21 @@
 				point.style.cursor = cursor;
 				point.style['pointer-events'] = 'all';
 				point.style.position = 'absolute';
-				point.style.left = left+'px';
-				point.style.top = top+'px';
+				point.style.left = left;
+				point.style.top = top;
 				point._align = align;
+				point.affects= affects;
 				return point;
 			}
-
-			let topLeftPoint = createPoint({left:-5, top:-5, cursor:'nwse-resize', align:'topLeft'});
-			let topCenterPoint = createPoint({left:this.width/2-5, cursor:'s-resize', top:-5, align:'topCenter'});
-			let topRightPoint = createPoint({left:this.width-5, cursor:'nesw-resize', top:-5, align:'topRight'});
-			let middleLeftPoint = createPoint({left:-5, top:this.height/2-5, cursor:'e-resize', align:'middleLeft'});
-			let middleRightPoint = createPoint({left:this.width-5, top:this.height/2-5, cursor:'w-resize', align:'middleRight'});
-			let bottomLeftPoint = createPoint({left:-5, top:this.height-5, cursor:'nesw-resize', align:'bottomLeft'});
-			let bottomCenterPoint = createPoint({left:this.width/2-5, top:this.height-5, cursor:'n-resize', align:'bottomCenter'});
-			let bottomRightPoint = createPoint({left:this.width-5, top:this.height-5, cursor:'nwse-resize', align:'bottomRight'});
+			
+			let topLeftPoint = createPoint({left:'-5px', top:'-5px', cursor:'nwse-resize', align:'topLeft', affects:{x:1, y:1, width:-1, height:-1}});
+			let topCenterPoint = createPoint({left:'calc(50% - 5px)', cursor:'s-resize', top:'-5px', align:'topCenter', affects:{x:0, y:1, width:0, height:-1}});
+			let topRightPoint = createPoint({left:'calc(100% - 5px)', cursor:'nesw-resize', top:'-5px', align:'topRight', affects:{x:0, y:1, width:1, height:-1}});
+			let middleLeftPoint = createPoint({left:'-5px', top:'calc(50% - 5px)', cursor:'e-resize', align:'middleLeft', affects:{x:1, y:0, width:-1, height:0}});
+			let middleRightPoint = createPoint({left:'calc(100% - 5px)', top:'calc(50% - 5px)', cursor:'w-resize', align:'middleRight', affects:{x:0, y:0, width:1, height:0}});
+			let bottomLeftPoint = createPoint({left:'-5px', top:'calc(100% - 5px)', cursor:'nesw-resize', align:'bottomLeft', affects:{x:1, y:0, width:-1, height:1}});
+			let bottomCenterPoint = createPoint({left:'calc(50% - 5px)', top:'calc(100% - 5px)', cursor:'n-resize', align:'bottomCenter', affects:{x:0, y:0, width:0, height:1}});
+			let bottomRightPoint = createPoint({left:'calc(100% - 5px)', top:'calc(100% - 5px)', cursor:'nwse-resize', align:'bottomRight', affects:{x:0, y:0, width:1, height:1}});
 			topLeftPoint.oncontextmenu = (e)=>{e.preventDefault()}
 			topCenterPoint.oncontextmenu = (e)=>{e.preventDefault()}
 			topRightPoint.oncontextmenu = (e)=>{e.preventDefault()}
@@ -280,39 +308,115 @@
 			drapMaskRef.appendChild(bottomLeftPoint);
 			drapMaskRef.appendChild(bottomCenterPoint);
 			drapMaskRef.appendChild(bottomRightPoint);
+
+
+
+
 		}
 
 		//给控制点绑定事件
 		bindControllerPointEvent(point){
 
-			let rightPointMove = e=>{
-				if(!this.canDrap) return;
-				if(e.which != 1) return;
-				e.stopPropagation();
+			let affects = point.affects;
 
-				//辅助三角形旋转角的临边
-				let x = e.clientX - (this.ox + this.arrowTranslate[0]) -10;
 
-				//构成三角形旋转角的对边
-				let y = e.clientY- (this.oy + this.arrowTranslate[1])-this.initData.initY-10;
-				this.dx = e.clientX;
-				this.dy = e.clientY;
+			/*******************************/	
+			/*   A          B           C
+			/*	  ---------------------
+			/*	  |					  |				
+			/*	  |                   |
+			/*	  |					  |
+			/*  G |					  | D
+			/*	  |					  |
+			/*	  |					  |
+			/*	  |					  |
+			/*	  ---------------------
+			/*  F		    D		    E 
+			/*******************************/
 
-				this.svgRef.setAttrs(this);
-				this.updateDrapMask('none');
-			}
+
 
 			point.onmousedown = e=>{
+				
 				if(e.which !=1 || !this.primitiveManager.isDrawing) return;
+				
+				let ox = e.clientX;
+				let oy = e.clientY;
+
+				//判断xy是否已经逆转
+				let isReverseX = false;
+				let isReverseY = false;
+
+				//逆转此次数奇数为已经逆转，偶数为正常，
+				let idx = 0;
+				let idy = 0;
+
+				let mousemove = e=>{
+					if(!this.canDrap) return;
+					if(e.which != 1) return;
+					e.stopPropagation();
+					
+					let disx = e.clientX - ox;
+					let disy = e.clientY - oy;
+					ox = e.clientX;
+					oy = e.clientY;
+					let absx = Math.abs(disx);
+					let absy = Math.abs(disy);
+
+
+
+
+					if(affects.x){
+						this.x += disx;
+					}
+					if(affects.y){
+						this.y += disy;
+					}
+					if(affects.width){
+						this.width+=affects.width*disx;
+					}
+					if(affects.height){
+						this.height+=affects.height*disy;
+					}
+
+					//当负数时，启动逆转
+					if(this.height < 0){
+						this.height = 0;
+						isReverseY = idy%2 ? false : true;
+						idy++;
+						affects.height = -affects.height;
+						
+					}
+
+					//当负数时，启动逆转
+					if(this.width < 0){
+						this.width = 0;
+						isReverseX  = idx%2 ? false : true;
+						idx++;
+						affects.width = -affects.width;
+						
+					}
+					
+					//x,y轴已经逆转，需要启动偏移
+					if(isReverseX){
+						this.rectTranslate[0] = this.rectTranslate[0]-affects.width*disx;
+					}
+					if(isReverseY){
+						this.rectTranslate[1] = this.rectTranslate[1]-affects.height*disy;
+					}
+
+					this.svgRef.setAttrs(this);
+					this.updateDrapMask('none');
+				}
 
 				let mouseup = e=>{
 					this.drapMaskRef.style['pointer-events'] = 'all';
-					document.removeEventListener('mousemove', point._align == 'right' && rightPointMove || leftPointMove);
+					document.removeEventListener('mousemove', mousemove);
 					document.removeEventListener('mouseup', mouseup);
 					this.canDrap = true;
 				}
 				
-				document.addEventListener('mousemove', point._align == 'right' && rightPointMove || leftPointMove);
+				document.addEventListener('mousemove', mousemove);
 				document.addEventListener('mouseup', mouseup);
 				e.stopPropagation();
 			}
@@ -350,8 +454,6 @@
 					x = e.clientX;
 					y = e.clientY;
 
-					console.log(disx, disy)
-
 					//箭头和遮罩移动一致
 					this.drapMaskRef.style.transform = `translate(${this.rectTranslate[0]+disx}px, ${this.rectTranslate[1]+disy}px)`;
 					this.rectTranslate = [this.rectTranslate[0]+disx, this.rectTranslate[1]+disy];
@@ -368,6 +470,7 @@
 				}
 				document.addEventListener('mousemove', mousemove);
 				document.addEventListener('mouseup', mouseup);
+				e.stopPropagation();
 			}
 		}
 
@@ -375,6 +478,9 @@
 		createDrapMask(){
 			if(!this.canDrap) return;
 			!this.drapMaskRef && (this.drapMaskRef = document.createElement('div')) & document.querySelector('.svg-hover').appendChild(this.drapMaskRef);
+			
+			this['pointer-events'] = 'none';
+			this.svgRef.setAttrs(this);
 
 			this.updateDrapMask('all');
 			document.querySelector('.svg-hover').style.display='block';
@@ -414,7 +520,7 @@
 			this.primitiveManager = primitiveManager;
 			this.initData = {
 				viewer:this.viewer,
-				style:'fill:red',
+				style:'stroke:red; fill:none; stroke-width:5',
 				x:0,
 				y:0,
 				originx:0,
@@ -426,7 +532,7 @@
 				domRef:null,
 				shift:false,
 				canDrap:false,
-				hoverStyle:'fill:green',
+				hoverStyle:'stroke:green; fill:none; stroke-width:5',
 				'pointer-events':'all'
 			}
 
@@ -645,7 +751,6 @@
 		
 		//给控制点绑定事件
 		bindControllerPointEvent(point){
-			let { polygon } = this;
 
 			/**
 			 * 1. 确定左右点
