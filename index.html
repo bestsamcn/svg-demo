@@ -308,10 +308,6 @@
 			drapMaskRef.appendChild(bottomLeftPoint);
 			drapMaskRef.appendChild(bottomCenterPoint);
 			drapMaskRef.appendChild(bottomRightPoint);
-
-
-
-
 		}
 
 		//给控制点绑定事件
@@ -351,6 +347,7 @@
 				let idx = 0;
 				let idy = 0;
 
+
 				let mousemove = e=>{
 					if(!this.canDrap) return;
 					if(e.which != 1) return;
@@ -358,12 +355,18 @@
 					
 					let disx = e.clientX - ox;
 					let disy = e.clientY - oy;
+					console.log(disx, disy, 'ddddd')
 					ox = e.clientX;
 					oy = e.clientY;
 					let absx = Math.abs(disx);
 					let absy = Math.abs(disy);
 
 
+					if(this.shift){
+						let max = Math.max(this.width, this.height);
+						this.width = this.height = max;	
+						disx = disy = Math.max(disx, disy);	
+					}
 
 
 					if(affects.x){
@@ -373,35 +376,43 @@
 						this.y += disy;
 					}
 					if(affects.width){
-						this.width+=affects.width*disx;
+						this.width += affects.width*disx;
 					}
 					if(affects.height){
-						this.height+=affects.height*disy;
+						this.height += affects.height*disy;
 					}
 
-					//当负数时，启动逆转
 					if(this.height < 0){
+						this.y -= this.height;
 						this.height = 0;
 						isReverseY = idy%2 ? false : true;
 						idy++;
 						affects.height = -affects.height;
+						return;
 						
 					}
 
 					//当负数时，启动逆转
 					if(this.width < 0){
+						this.x -= this.width;
 						this.width = 0;
 						isReverseX  = idx%2 ? false : true;
 						idx++;
 						affects.width = -affects.width;
+						return;
 						
 					}
+
+				
 					
 					//x,y轴已经逆转，需要启动偏移
 					if(isReverseX){
+						if(this.width <= 0) disx = 0;
 						this.rectTranslate[0] = this.rectTranslate[0]-affects.width*disx;
+
 					}
 					if(isReverseY){
+						if(this.height <= 0) disy = 0;
 						this.rectTranslate[1] = this.rectTranslate[1]-affects.height*disy;
 					}
 
@@ -541,6 +552,7 @@
 		}
 
 		createAttrs(){
+			this.initData.rectTranslate = JSON.parse(JSON.stringify(this.initData.rectTranslate))
 			return {...this.initData};
 		}
 
