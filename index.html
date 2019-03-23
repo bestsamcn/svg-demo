@@ -192,8 +192,6 @@
 			this.primitiveManager = primitiveManager;
 
 			this.controllerPoints = [];
-			
-
 			this.create();
 		}
 
@@ -369,7 +367,7 @@
 					if(e.which != 1) return;
 					e.stopPropagation();
 
-					if(this.shift){
+					if(this.shift && point._align == 'bottomRight'){
 						
 						let x = e.clientX;
 						let y = e.clientY;
@@ -409,8 +407,7 @@
 						}
 						this.height = Math.max(absy, absx);
 						this.width = Math.max(absy, absx)
-						this.svgRef.setAttrs(this);
-						this.updateDrapMask('none');
+						this.updateAll();
 						return;
 					}
 					
