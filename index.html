@@ -51,6 +51,8 @@
 
     	</svg>
     	<div style="position: absolute;left:0;top:0; width:100%; height:100%; pointer-events:none;" class="svg-hover"></div>
+    	<div style="width:100%;height:1px;left:0; top:50%;background: #333;position: absolute; pointer-events: none"></div>
+    	<div style="width:1px;height:100%;left:50%; top:0%;background: #333;position: absolute; pointer-events: none"></div>
     </div>
 </body>
 </html>
@@ -91,6 +93,7 @@
 					this.tag.setAttribute('transform', _attrs);
 					continue;
 				}
+				if((attr == 'width' || attr == 'height') && attrs[attr] < 0 ) return;
 				this.tag.setAttribute(attr, attrs[attr]);
 	        }
 		}
@@ -339,25 +342,27 @@
 			/*  F		    D		    E 
 			/*******************************/
 
-
+			
 
 			point.onmousedown = e=>{
 				
 				if(e.which !=1 || !this.primitiveManager.isDrawing) return;
 				
+				//点击坐标
 				let ox = e.clientX;
 				let oy = e.clientY;
-
-				//判断xy是否已经逆转
-				let isReverseX = false;
-				let isReverseY = false;
 
 				//逆转此次数奇数为已经逆转，偶数为正常，
 				let idx = 0;
 				let idy = 0;
+				
+				//原点坐标
+				let tox = this.x;
+				let toy = this.y;
 
-				let tox = this.x+this.rectTranslate[0];
-				let toy = this.y+this.rectTranslate[1];
+				//原点对角坐标
+				let hoy = this.y + this.height;
+				let hox = this.x + this.width;
 
 				let mousemove = e=>{
 					if(!this.canDrap) return;
@@ -409,16 +414,11 @@
 						return;
 					}
 					
-					
+					//差值
 					let disx = e.clientX - ox;
 					let disy = e.clientY - oy;
 					ox = e.clientX;
 					oy = e.clientY;
-					let absx = Math.abs(disx);
-					let absy = Math.abs(disy);
-
-
-					
 
 					if(affects.x){
 						this.x += disx;
@@ -433,50 +433,88 @@
 						this.height += affects.height*disy;
 					}
 
-					if(this.height < 0){
+					//当负数时，启动逆转
+					if(this.width < 0){
 
-						//清空高度和偏移
-						this.height = 0;
-						this.rectTranslate[1] = 0;
-						isReverseY = idy%2 ? false : true;
+						//向右
+						if(disx > 0){
+
+							//实际原点x
+							if(idx != 0){
+								this.x = tox;
+								this.rectTranslate[0] = 0;
+								tox = this.x;
+								this.width = e.clientX - this.x;
+								this.updateAll();
+							}else{
+								this.x = hox;
+								this.width = 0;
+								this.rectTranslate[0] = 0;
+								tox = this.x;
+								this.updateAll();
+							}
+						//向左
+						}else{
+							this.width = tox - e.clientX;
+							this.x = e.clientX;
+							this.rectTranslate[0] = 0;
+							this.updateAll();
+						}
+						
+						idx++;
+						affects.width = -affects.width;
+						return;
+					}
+
+
+					if(this.height < 0 ){
+
+						if(disy > 0){
+
+							//实际原点y
+							if(idy != 0){
+								this.y = toy;
+								this.rectTranslate[1] = 0;
+								toy = this.y;
+								this.height = e.clientY - this.y;
+								this.updateAll();
+							}else{
+								this.y = hoy;
+								this.height = 0;
+								this.rectTranslate[1] = 0;
+								toy = this.y;
+								this.updateAll();
+							}
+						}else{
+							this.height = toy - e.clientY;
+							this.y = e.clientY;
+							this.rectTranslate[1] = 0;
+							this.updateAll();
+						}
+
 						idy++;
 						affects.height = -affects.height;
 						return;
 						
 					}
 
-					//当负数时，启动逆转
-					if(this.width < 0){
-
-						//清空宽度和偏移
-						this.width = 0;
-						this.rectTranslate[0] = 0;
-						isReverseX  = idx%2 ? false : true;
-						idx++;
-						affects.width = -affects.width;
-						return;
-					}
-
 					//x,y轴已经逆转，需要启动偏移
-					if(isReverseX){
+					if(idx%2 == 1){
 						this.rectTranslate[0] = this.rectTranslate[0]-affects.width*disx;
 					}
-					if(isReverseY){
+					if(idy%2 == 1){
 						this.rectTranslate[1] = this.rectTranslate[1]-affects.height*disy;
 					}
-
-					this.svgRef.setAttrs(this);
-					this.updateDrapMask('none');
+					this.updateAll();
 				}
 
 				let mouseup = e=>{
 					this.drapMaskRef.style['pointer-events'] = 'all';
 					document.removeEventListener('mousemove', mousemove);
 					document.removeEventListener('mouseup', mouseup);
-					// this.originx = this.x;
-					// this.originy = this.y;
-					//更新控制点，防止控制点变换后异常
-					this.updateControllerPoints();
+
+					//重新计算
+					this.updateAll();
 					this.canDrap = true;
 				}
 				
@@ -526,9 +564,7 @@
 
 				let mouseup= e=>{
 
-					//保存移动偏差
-					// this.rectTranslate[0] += disx;
-					// this.rectTranslate[1] += disy;
+					this.updateAll();
 					document.removeEventListener('mousemove', mousemove);
 					document.removeEventListener('mouseup', mouseup);
 				}
@@ -536,6 +572,16 @@
 				document.addEventListener('mouseup', mouseup);
 				e.stopPropagation();
 			}
+		}
+
+		//更新原点，偏移清0
+		updateAll(){
+			this.x += this.rectTranslate[0];
+			this.y += this.rectTranslate[1];
+			this.rectTranslate[0] = this.rectTranslate[1] = 0;
+			this.svgRef.setAttrs(this);
+			this.updateDrapMask();
+			this.updateControllerPoints();
 		}
 
 		//创建遮罩
