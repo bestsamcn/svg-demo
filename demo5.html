@@ -62,6 +62,19 @@
 		originx:0,
 		originy:0
 	};
+
+	let shift = false;
+
+	document.addEventListener('keydown', e=>{
+		if(e.which == 16){
+			shift = true;
+		}
+	});
+	document.addEventListener('keyup', e=>{
+		if(e.which == 16){
+			shift = false;
+		}
+	});
 	let reg = /(\d+,\s*-?\d+).*\(-?\d+\)/ig;
 	let onmousedown = e=>{
 		let x = e.offsetX;
@@ -96,68 +109,46 @@
 	
 		let absx = 0;
 		let absy = 0;
+		let abs = 0;
+
+		absx = Math.abs(x-attrs.originx);
+		absy = Math.abs( y-attrs.originy);
+		abs = Math.max(absy, absx);
+		if(shift) absx = absy = abs;
 
 		//右边
 		if(x > attrs.originx){
-			absx = x-attrs.originx;
-			absx = Math.abs(absx);
+			
 
 
-			//下边
+			//上
 			if(y > attrs.originy){
-				absy = y-attrs.originy;
-				absy = Math.abs(absy);
 				attrs.cx = attrs.originx + absx/2;
 				attrs.cy = attrs.originy + absy/2;
-				attrs.rx = absx/2;
-				attrs.ry = absy/2;
-
-			//上边
+			//下
 			}else{
-				absy = y-attrs.originy;
-				absy = Math.abs(absy);
-				abs = Math.max(absx, absy);
 				attrs.cx = attrs.originx + absx/2;
 				attrs.cy = attrs.originy - absy/2;
-				attrs.rx = absx/2;
-				attrs.ry = absy/2;
-
 			}
 		}
 
 		//左边
 		if(x < attrs.originx){
-			absx = x-attrs.originx;
-			absx = Math.abs(absx);
-
 			//下边
 			if(y > attrs.originy){
-				absy = y-attrs.originy;
-				absy = Math.abs(absy);
 				attrs.cx = attrs.originx - absx/2;
 				attrs.cy = attrs.originy + absy/2;
-				attrs.rx = absx/2;
-				attrs.ry = absy/2;
 
 			//上边
 			}else{
-				absy = y-attrs.originy;
-				absy = Math.abs(absy);
 				attrs.cx = attrs.originx - absx/2;
 				attrs.cy = attrs.originy - absy/2;
-				attrs.rx = absx/2;
-				attrs.ry = absy/2;
-
 			}
 		}
+
+		attrs.rx = absx/2;
+		attrs.ry = absy/2;
 		
-		
-		// let absx = Math.abs(x-attrs.originx);
-		// let absy = Math.abs(y-attrs.originy);
-		// let abs = Math.max(absx, absy);
-		// attrs.cx = attrs.originx + abs/2;
-		// attrs.cy = attrs.originy + abs/2;
-		// attrs.r = abs/2;
 		rectobj.setAttrs(attrs)
 	}
 
