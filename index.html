@@ -62,7 +62,12 @@
 
 	class CreateSVG{
 		constructor(tag, attrs){
-			this.tag = document.createElementNS('http://www.w3.org/2000/svg', tag);
+			if(['path', 'line', 'ellipse', 'circle', 'rect', 'polygon', 'polyline'].includes(tag)){
+				this.tag = document.createElementNS('http://www.w3.org/2000/svg', tag);
+			}else{
+				this.tag = document.createElement(tag);
+			}
+			
 			this.attrs = attrs;
 			this.setAttrs(attrs);
 		}
@@ -73,7 +78,13 @@
 		 */
 		setAttrs(attrs){
 			for(let attr in attrs){
-				
+				if(attr == 'style'){
+
+					for(let _attr in attrs[attr]){
+						this.tag.style[_attr] = attr[_attr];
+					}
+					continue;
+				}
 				
 				//矩形
 				if(attr == 'rectTranslate' || attr == 'ellipseTranslate' || attr == 'pathTranslate'){
@@ -98,6 +109,7 @@
 	        }
 		}
 	}
+
 
 	
 	//图形管理类
@@ -169,6 +181,56 @@
 		bindMouseUpEvent(e){}
 	}
 	
+	//文本类
+	class Text extends EventController{
+		constructor(viewer, primitiveManager){
+			super(viewer, primitiveManager);
+			this.initData = {
+				text:'',
+				textTranslate:[0,0],
+				color:'#333',
+				fontSize:14,
+				hoverColor:'#222',
+				lineHeight:30,
+				left:0,
+				top:0,
+				maxWidth:this.viewer.offsetWidth,
+				minWidth:100,
+				minHeight:30,
+				style:''
+			}
+			this.primitive = null;
+		}
+
+		createAttrs(){
+			this.initData.textTranslate = JSON.parse(JSON.stringify(this.initData.textTranslate));
+			return {...this.initData};
+		}
+
+		createStyle(styleObj){
+			let style = {};
+			let { minHeight, maxWidth, minWidth, lineHeight, left, top, color, fontSize, textTranslate } = styleObj;
+			style.transform = `translate(${textTranslate[0]}px, ${textTranslate[1]}px)`;
+			style.minHeight = minHeight+'px';
+			style.maxWidth = maxWidth+'px';
+			style.minWidth = minWidth+'px';
+			style.lineHeight = lineHeight+'px';
+			style.left = left+'px';
+			style.top = top+'px';
+			style.fontSize = fontSize+'px';
+			style.color = color;
+			return {style};
+		}
+
+		bindMouseDownEvent(e){
+			let x = e.offsetX;
+			let y = e.offsetY;
+			this.primitive.textRef = new CreateSVG('textarea', this.createStyle(this.initData));
+			this.primitive.domRef = this.primitive.textRef.tag;
+			
+
+		}
+	}
 
 	//路径创建类
 	class PathFactory{
@@ -2104,7 +2166,8 @@
 		}
 	}
 	window.primitiveManager = new PrimitiveManager();
-	new Path(svg, primitiveManager);
+	new Text(svg, primitiveManager);
+	// new Path(svg, primitiveManager);
 	// new Ellipse(svg, primitiveManager);
 	// new Rectangle(svg, primitiveManager);
 	// new PolygonArrow(svg, primitiveManager);
