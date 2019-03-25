@@ -76,7 +76,7 @@
 				
 				
 				//矩形
-				if(attr == 'rectTranslate' || attr == 'ellipseTranslate'){
+				if(attr == 'rectTranslate' || attr == 'ellipseTranslate' || attr == 'pathTranslate'){
 					this.tag.setAttribute('transform', `translate(${attrs[attr].join(' ').toString()})`);	
 					continue;
 				}
@@ -131,9 +131,6 @@
 	}
 
 
-	
-
-	
 	//事件控制类
 	class EventController{
 		constructor(viewer, primitiveManager){
@@ -170,6 +167,287 @@
 		bindMouseDownEvent(e){}
 		bindMouseMoveEvent(e){}
 		bindMouseUpEvent(e){}
+	}
+	
+
+	//路径创建类
+	class PathFactory{
+		constructor(primitiveProps, primitiveManage){
+			this.type = 'path';
+			this.viewer = primitiveProps.viewer;
+			this.style = primitiveProps.style;
+			this.hoverStyle = primitiveProps.hoverStyle;
+			this.originx = primitiveProps.originx;
+			this.originy = primitiveProps.originy;
+			this.pathTranslate = primitiveProps.pathTranslate;
+			this.d = primitiveProps.d;
+			this.svgRef =null;
+			this.domRef =null;
+			this.drapMaskRef = null;
+			this.canDrap = false;
+			this['pointer-events'] = primitiveProps['pointer-events'];
+			
+			this.primitiveManager = primitiveManager;
+
+			this.create();
+		}
+
+		create(){
+			this.svgRef = new CreateSVG('path', this);
+			this.domRef = this.svgRef.tag;
+			this.viewer.querySelector('g').appendChild(this.svgRef.tag);
+			
+			this.bindHoverEvent();
+			this.bindClickEvent();
+			this.preventDefault();
+		}
+
+		//阻挡右键默认菜单
+		preventDefault(){
+			document.querySelector('svg').oncontextmenu = (e)=>{e.preventDefault()}
+		}
+
+		//绑定hover事件
+		bindHoverEvent(){
+			this.domRef.onmouseenter = ()=>{
+				this.domRef.style = this.hoverStyle;
+
+			}
+			this.domRef.onmouseleave = ()=>{
+				this.domRef.style = this.style;
+			}
+		}
+
+		//绑定事件
+		bindClickEvent(){
+			this.domRef.addEventListener('mousedown', e=>{
+				if(e.which != 1) return;
+				this.primitiveManager.currentPrimitive = this;
+				this.primitiveManager.isDrawing = true;
+				this.createDrapMask();
+				e.stopPropagation();
+			});
+		}
+
+		//添加控制遮罩
+		createDrapMask(){
+			if(!this.canDrap) return;
+			!this.drapMaskRef && (this.drapMaskRef = document.createElement('div')) & document.querySelector('.svg-hover').appendChild(this.drapMaskRef);
+			
+			this['pointer-events'] = 'none';
+			this.svgRef.setAttrs(this);
+
+			this.updateDrapMask('all');
+			document.querySelector('.svg-hover').style.display='block';
+			this.domRef.style = this.style;
+			
+			//绑定拖拽事件
+			this.bindDrapEvent();
+
+
+			//点击右键遮罩
+			document.addEventListener('mousedown', this.onDisppear.bind(this));
+		}
+
+		//更新遮罩位置
+		updateDrapMask(pointerEvents){
+			let {x, y, width, height} = this.domRef.getBBox();
+			let styleObj = {
+				position:'absolute',
+				left:x +'px',
+				top:y +'px',
+				zIndex:100,
+				width: width + 'px',
+				height:height + 'px',
+				display:'block',
+				cursor:'move',
+				border:'1px solid red',
+				boxSizing:'border-box',
+				pointerEvents:pointerEvents,
+				transform:`translate(${this.pathTranslate[0]}px, ${this.pathTranslate[1]}px)`,
+			}
+			for(let i in styleObj) this.drapMaskRef.style[i] = styleObj[i];
+		}
+
+
+		//方向调整
+		bindDirectionEvent(){
+			document.addEventListener('keydown', e=>{
+				if(e.which == 37){
+					this.pathTranslate[0] -= 1;
+				}
+				if(e.which == 38){
+					this.pathTranslate[1] -= 1;
+				}
+				if(e.which == 39){
+					this.pathTranslate[0] += 1;
+				}
+				if(e.which == 40){
+					this.pathTranslate[1] += 1;
+				}
+				this.updateAll();
+			});
+		}
+
+		//移动事件绑定
+		bindDrapEvent(){
+			this.drapMaskRef.onmousedown = e=>{
+				if(!this.canDrap) return;
+				let x = e.clientX;
+				let y = e.clientY;
+				let disx = 0;
+				let disy = 0;
+				let mousemove = e=>{
+					disx = e.clientX - x;
+					disy = e.clientY - y;
+					x = e.clientX;
+					y = e.clientY;
+
+					//箭头和遮罩移动一致
+					this.drapMaskRef.style.transform = `translate(${this.pathTranslate[0]+disx}px, ${this.pathTranslate[1]+disy}px)`;
+					this.pathTranslate = [this.pathTranslate[0]+disx, this.pathTranslate[1]+disy];
+					this.svgRef.setAttrs(this);
+				}
+
+				let mouseup= e=>{
+
+					this.updateAll();
+					document.removeEventListener('mousemove', mousemove);
+					document.removeEventListener('mouseup', mouseup);
+				}
+				document.addEventListener('mousemove', mousemove);
+				document.addEventListener('mouseup', mouseup);
+				e.stopPropagation();
+			}
+		}
+
+		//更新原点，偏移清0
+		updateAll(){
+			this.svgRef.setAttrs(this);
+			this.updateDrapMask();
+		}
+
+
+
+		//消失
+		onDisppear(e){
+			if(e.which != 3) return;
+			this.primitiveManager.isDrawing = false;
+			this['pointer-events'] = 'inherit';
+			this.svgRef.setAttrs(this);
+			this.drapMaskRef && (this.drapMaskRef.style.display='none');
+			this.drapMaskRef && this.drapMaskRef.remove();
+			this.drapMaskRef = null;
+			this.domRef.style = this.style;
+		}
+	}
+
+
+	//路径类
+	class Path extends EventController{
+		constructor(viewer, primitiveManager){
+			super(viewer, primitiveManager);
+			this.viewer = viewer;
+			this.primitiveManager = primitiveManager;
+			this.initData = {
+				viewer:this.viewer,
+				style:'stroke:red; fill:none; stroke-width:2',
+				pathTranslate:[0, 0],
+				pathScale:[1, 1],
+				svgRef:null,
+				domRef:null,
+				shift:false,//左右直线
+				ctrl:false,//上下直线
+				canDrap:false,
+				d:'',
+				originx:0,
+				originy:0,
+				hoverStyle:'stroke:green; fill:none; stroke-width:2',
+			
+				'pointer-events':'all'
+			}
+
+			this.lastx = 0;
+			this.lasty = 0;
+
+			this.primitive = null;
+			this.bindShiftEvent();
+		}
+
+		createAttrs(){
+			this.initData.pathTranslate = JSON.parse(JSON.stringify(this.initData.pathTranslate));
+			this.initData.pathScale = JSON.parse(JSON.stringify(this.initData.pathScale));
+			return {...this.initData};
+		}
+
+		//shift绑定
+		bindShiftEvent(){
+			document.addEventListener('keydown', e=>{
+				if(e.which == 16){
+					this.primitive.shift = true;
+				}
+				if(e.which == 17){
+					this.primitive.ctrl = true;
+				}
+			});
+			document.addEventListener('keyup', e=>{
+				if(e.which == 16){
+					this.primitive.shift = false;
+				}
+				if(e.which == 17){
+					this.primitive.ctrl = false;
+				}
+			});
+		}
+
+		bindMouseDownEvent(e){
+			let x = e.offsetX;
+			let y = e.offsetY;
+			this.primitive = this.createAttrs();
+			this.primitive.originx = x;
+			this.primitive.originy = y;
+			this.lastx = x;
+			this.lasty = y;
+			this.primitive.d = `M${x} ${y}`;
+		}
+
+		bindMouseMoveEvent(e){
+			let x = e.offsetX;
+			let y = e.offsetY;
+
+			//直线			
+			if(this.primitive.shift && !this.primitive.ctrl){
+				y = this.lasty;
+			}
+
+			if(!this.primitive.shift && this.primitive.ctrl){
+				x = this.lastx;
+			}
+
+
+			this.primitive.d += this.primitive.d.includes('L') ? ` ${x} ${y}` : ` L${x} ${y}`;
+
+			if(!this.primitive.svgRef){
+				this.primitive.svgRef = new CreateSVG('path', this.primitive);
+				this.primitive.domRef = this.primitive.svgRef.tag;
+				this.viewer.querySelector('g').appendChild(this.primitive.domRef);
+			}
+
+			this.lastx = x;
+			this.lasty = y;
+			this.primitive.svgRef && this.primitive.svgRef.setAttrs(this.primitive);
+		}
+
+		//抬起鼠标
+		bindMouseUpEvent(){
+			if(!this.primitive.svgRef) return false;
+			this.primitive.domRef.remove();
+			this.primitive.domRef = null;
+			this.primitive.svgRef = null;
+			let primitive = new PathFactory({...this.primitive}, primitiveManager);
+			primitiveManager.primitives.push(primitive);
+			primitiveManager.currentPrimitive = primitive
+		}
 	}
 
 	//椭圆创建类
@@ -1826,7 +2104,8 @@
 		}
 	}
 	window.primitiveManager = new PrimitiveManager();
-	new Ellipse(svg, primitiveManager);
+	new Path(svg, primitiveManager);
+	// new Ellipse(svg, primitiveManager);
 	// new Rectangle(svg, primitiveManager);
 	// new PolygonArrow(svg, primitiveManager);
 
