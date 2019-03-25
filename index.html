@@ -208,6 +208,7 @@
 			this.bindClickEvent();
 			this.preventDefault();
 			this.bindShiftEvent();
+			this.bindDirectionEvent();
 		}
 
 		//shift绑定
@@ -304,7 +305,6 @@
 			 * @param  {String} options.cursor  鼠标类型
 			 * @param  {String} options.align   位置，只做别名，无其他作用
 			 * @param  {String} options.affects 影响范围，0-无影响，1-正相关， -1-负相关
-			 * @return {String}                 [description]
 			 */
 			let createPoint = ({left, top, cursor, align, affects})=>{
 				let point = document.createElement('a');
@@ -324,14 +324,14 @@
 				return point;
 			}
 			
-			let topLeftPoint = createPoint({left:'-5px', top:'-5px', cursor:'nwse-resize', align:'topLeft', affects:{x:1, y:1, width:-1, height:-1}});
-			let topCenterPoint = createPoint({left:'calc(50% - 5px)', cursor:'s-resize', top:'-5px', align:'topCenter', affects:{x:0, y:1, width:0, height:-1}});
-			let topRightPoint = createPoint({left:'calc(100% - 5px)', cursor:'nesw-resize', top:'-5px', align:'topRight', affects:{x:0, y:1, width:1, height:-1}});
-			let middleLeftPoint = createPoint({left:'-5px', top:'calc(50% - 5px)', cursor:'e-resize', align:'middleLeft', affects:{x:1, y:0, width:-1, height:0}});
-			let middleRightPoint = createPoint({left:'calc(100% - 5px)', top:'calc(50% - 5px)', cursor:'w-resize', align:'middleRight', affects:{x:0, y:0, width:1, height:0}});
-			let bottomLeftPoint = createPoint({left:'-5px', top:'calc(100% - 5px)', cursor:'nesw-resize', align:'bottomLeft', affects:{x:1, y:0, width:-1, height:1}});
-			let bottomCenterPoint = createPoint({left:'calc(50% - 5px)', top:'calc(100% - 5px)', cursor:'n-resize', align:'bottomCenter', affects:{x:0, y:0, width:0, height:1}});
-			let bottomRightPoint = createPoint({left:'calc(100% - 5px)', top:'calc(100% - 5px)', cursor:'nwse-resize', align:'bottomRight', affects:{x:0, y:0, width:1, height:1}});
+			let topLeftPoint = createPoint({left:'-5px', top:'-5px', cursor:'nwse-resize', align:'topLeft', affects:{cx:1, cy:1, rx:-1, ry:-1}});
+			let topCenterPoint = createPoint({left:'calc(50% - 5px)', cursor:'s-resize', top:'-5px', align:'topCenter', affects:{cx:0, cy:1, rx:0, ry:-1}});
+			let topRightPoint = createPoint({left:'calc(100% - 5px)', cursor:'nesw-resize', top:'-5px', align:'topRight', affects:{cx:1, cy:-1, rx:1, ry:-1}});
+			let middleLeftPoint = createPoint({left:'-5px', top:'calc(50% - 5px)', cursor:'e-resize', align:'middleLeft', affects:{cx:1, cy:0, rx:-1, ry:0}});
+			let middleRightPoint = createPoint({left:'calc(100% - 5px)', top:'calc(50% - 5px)', cursor:'w-resize', align:'middleRight', affects:{cx:1, cy:0, rx:1, ry:0}});
+			let bottomLeftPoint = createPoint({left:'-5px', top:'calc(100% - 5px)', cursor:'nesw-resize', align:'bottomLeft', affects:{cx:1, cy:-1, rx:-1, ry:1}});
+			let bottomCenterPoint = createPoint({left:'calc(50% - 5px)', top:'calc(100% - 5px)', cursor:'n-resize', align:'bottomCenter', affects:{cx:0, cy:1, rx:0, ry:1}});
+			let bottomRightPoint = createPoint({left:'calc(100% - 5px)', top:'calc(100% - 5px)', cursor:'nwse-resize', align:'bottomRight', affects:{cx:1, cy:1, rx:1, ry:1}});
 			topLeftPoint.oncontextmenu = (e)=>{e.preventDefault()}
 			topCenterPoint.oncontextmenu = (e)=>{e.preventDefault()}
 			topRightPoint.oncontextmenu = (e)=>{e.preventDefault()}
@@ -358,11 +358,28 @@
 			this.drapMaskRef.appendChild(bottomRightPoint);
 			this.controllerPoints = [topLeftPoint, topRightPoint, middleLeftPoint, middleLeftPoint, bottomLeftPoint, bottomCenterPoint, bottomRightPoint];
 		}
+		
+		//方向调整
+		bindDirectionEvent(){
+			document.addEventListener('keydown', e=>{
+				if(e.which == 37){
+					this.ellipseTranslate[0] -= 1;
+				}
+				if(e.which == 38){
+					this.ellipseTranslate[1] -= 1;
+				}
+				if(e.which == 39){
+					this.ellipseTranslate[0] += 1;
+				}
+				if(e.which == 40){
+					this.ellipseTranslate[1] += 1;
+				}
+				this.updateAll();
+			});
+		}
 
 		//给控制点绑定事件
 		bindControllerPointEvent(point){
-			return;
-
 			let affects = point.affects;
 
 
@@ -394,13 +411,14 @@
 				let idx = 0;
 				let idy = 0;
 				
-				//原点坐标
-				let tox = this.x;
-				let toy = this.y;
+				//原点坐标，用于设置临界点
+				let tox = this.cx - this.rx;
+				let toy = this.cy - this.ry;
 
-				//原点对角坐标
-				let hoy = this.y + this.height;
-				let hox = this.x + this.width;
+				//原点坐标，用于设置临界点
+				let hox = this.cx + this.rx;
+				let hoy = this.cy + this.ry;
+
 
 				let mousemove = e=>{
 					if(!this.canDrap) return;
@@ -457,90 +475,88 @@
 					ox = e.clientX;
 					oy = e.clientY;
 
-					if(affects.x){
-						this.x += disx;
-					}
-					if(affects.y){
-						this.y += disy;
-					}
-					if(affects.width){
-						this.width += affects.width*disx;
-					}
-					if(affects.height){
-						this.height += affects.height*disy;
+					if(affects.cx){
+						this.cx += disx/2;
+
 					}
 
+					if(affects.rx){
+						this.rx += affects.rx*disx/2;
+					}
+					
+					if(affects.cy){
+						this.cy += disy/2;
+						
+					}
+					
+					if(affects.ry){
+						this.ry += affects.ry*disy/2;
+					}
+
+
 					//当负数时，启动逆转
-					if(this.width < 0){
+					if(this.rx < 0){
 
 						//向右
 						if(disx > 0){
 
 							//实际原点x
 							if(idx != 0){
-								this.x = tox;
-								this.rectTranslate[0] = 0;
-								tox = this.x;
-								this.width = e.clientX - this.x;
-								this.updateAll();
+								
+								this.cx = hox;
+								this.rx = 0
 							}else{
-								this.x = hox;
-								this.width = 0;
-								this.rectTranslate[0] = 0;
-								tox = this.x;
-								this.updateAll();
+								this.cx = hox;
+
+								//重新设置x边界
+								tox = hox;
+								this.rx = 0; 
 							}
+
 						//向左
 						}else{
-							this.width = tox - e.clientX;
-							this.x = e.clientX;
-							this.rectTranslate[0] = 0;
-							this.updateAll();
+							this.cx = tox;
+
+							//重新设置x边界
+							hox = tox;
+							this.rx = 0;
 						}
-						
+						this.updateAll();
 						idx++;
-						affects.width = -affects.width;
+						affects.rx = -affects.rx;
 						return;
 					}
 
 
-					if(this.height < 0 ){
-
+					if(this.ry < 0 ){
+						
+						//向下
 						if(disy > 0){
 
 							//实际原点y
 							if(idy != 0){
-								this.y = toy;
-								this.rectTranslate[1] = 0;
-								toy = this.y;
-								this.height = e.clientY - this.y;
-								this.updateAll();
+								this.cy = hoy;
+								this.ry = 0;
 							}else{
-								this.y = hoy;
-								this.height = 0;
-								this.rectTranslate[1] = 0;
-								toy = this.y;
-								this.updateAll();
-							}
-						}else{
-							this.height = toy - e.clientY;
-							this.y = e.clientY;
-							this.rectTranslate[1] = 0;
-							this.updateAll();
-						}
+								this.cy = hoy;
 
+								toy = hoy;
+								this.ry = 0;
+								
+							}
+
+						//向上
+						}else{
+							this.cy = toy;
+
+							hoy = toy;
+							this.ry = 0;
+						}
+						this.updateAll();
 						idy++;
-						affects.height = -affects.height;
+						affects.ry = -affects.ry;
 						return;
 						
-					}
-
-					//x,y轴已经逆转，需要启动偏移
-					if(idx%2 == 1){
-						this.rectTranslate[0] = this.rectTranslate[0]-affects.width*disx;
-					}
-					if(idy%2 == 1){
-						this.rectTranslate[1] = this.rectTranslate[1]-affects.height*disy;
 					}
 					this.updateAll();
 				}
