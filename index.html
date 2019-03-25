@@ -418,6 +418,11 @@
 				//原点坐标，用于设置临界点
 				let hox = this.cx + this.rx;
 				let hoy = this.cy + this.ry;
+				
+
+				//等比缩放专用
+				let originx = tox;
+				let originy = toy;
 
 
 				let mousemove = e=>{
@@ -430,41 +435,46 @@
 						let x = e.clientX;
 						let y = e.clientY;
 
-						let absy = Math.abs(y- toy);
-						let absx = Math.abs(x- tox);
-						let abs = Math.max(absy, absx);
+					
+						let absx = 0;
+						let absy = 0;
+						let abs = 0;
+
+
+						absx = Math.abs(x - originx);
+						absy = Math.abs(y - originy);
+						abs = Math.max(absy, absx);
 
 						//右边
-						if(x > tox){
+						if(x > originx){
 
-							//下边
-							if(y > toy){
-								this.y = toy;
-								this.x = tox;
-
-							//上边
+							//上
+							if(y > originy){
+								this.cx = originx + abs/2;
+								this.cy = originy + abs/2;
+							//下
 							}else{
-								this.y = toy-(this.shift ? abs : absy);
-								this.x = tox;
+								this.cx = originx + abs/2;
+								this.cy = originy - abs/2;
 							}
 						}
 
 						//左边
-						if(x < tox){
-
+						if(x < originx){
 							//下边
-							if(y > toy){
-								this.x = tox-(this.shift ? abs : absx);
-								this.y = toy;
+							if(y > originy){
+								this.cx = originx - abs/2;
+								this.cy = originy + abs/2;
 
 							//上边
 							}else{
-								this.x = tox-(this.shift ? abs : absx);
-								this.y = toy-(this.shift ? abs : absy);
+								this.cx = originx - abs/2;
+								this.cy = originy - abs/2;
 							}
 						}
-						this.height = Math.max(absy, absx);
-						this.width = Math.max(absy, absx)
+
+
+						this.rx = this.ry = abs/2;
 						this.updateAll();
 						return;
 					}
@@ -693,8 +703,8 @@
 
 		bindMouseDownEvent(e){
 			this.primitive = this.createAttrs();
-			let x = e.offsetX;
-			let y = e.offsetY;
+			let x = e.clientX;
+			let y = e.clientY;
 			this.primitive.cx = x;
 			this.primitive.cy = y;
 			this.primitive.originx = x;
@@ -703,8 +713,8 @@
 		}
 
 		bindMouseMoveEvent(e){
-			let x = e.offsetX;
-			let y = e.offsetY;
+			let x = e.clientX;
+			let y = e.clientY;
 
 
 			/*
@@ -814,6 +824,7 @@
 			this.bindClickEvent();
 			this.preventDefault();
 			this.bindShiftEvent();
+			this.bindDirectionEvent();
 		}
 
 		//shift绑定
@@ -855,6 +866,25 @@
 		//阻挡右键默认菜单
 		preventDefault(){
 			document.querySelector('svg').oncontextmenu = (e)=>{e.preventDefault()}
+		}
+
+		//方向调整
+		bindDirectionEvent(){
+			document.addEventListener('keydown', e=>{
+				if(e.which == 37){
+					this.rectTranslate[0] -= 1;
+				}
+				if(e.which == 38){
+					this.rectTranslate[1] -= 1;
+				}
+				if(e.which == 39){
+					this.rectTranslate[0] += 1;
+				}
+				if(e.which == 40){
+					this.rectTranslate[1] += 1;
+				}
+				this.updateAll();
+			});
 		}
 		
 		//更新控制点，一把梭
