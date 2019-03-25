@@ -47,13 +47,15 @@
 <body>
     <div class="svg" style="width:600px; height:600px;border:1px solid #333; position: relative;">
     	<svg pointer-events="painted" width="600" height="600" id="svg" style="position:absolute; left:0px; top:0px;">
-    		<g id="ggg" pointer-events="inherit"></g>
+    		<g id="ggg" pointer-events="inherit">
+    		</g>
 
     	</svg>
     	<div style="position: absolute;left:0;top:0; width:100%; height:100%; pointer-events:none;" class="svg-hover"></div>
     	<div style="width:100%;height:1px;left:0; top:50%;background: #333;position: absolute; pointer-events: none"></div>
     	<div style="width:1px;height:100%;left:50%; top:0%;background: #333;position: absolute; pointer-events: none"></div>
     </div>
+
 </body>
 </html>
 <script>
@@ -62,7 +64,7 @@
 
 	class CreateSVG{
 		constructor(tag, attrs){
-			if(['path', 'line', 'ellipse', 'circle', 'rect', 'polygon', 'polyline'].includes(tag)){
+			if(['path', 'line', 'ellipse', 'circle', 'rect', 'polygon', 'polyline', 'text'].includes(tag)){
 				this.tag = document.createElementNS('http://www.w3.org/2000/svg', tag);
 			}else{
 				this.tag = document.createElement(tag);
@@ -79,9 +81,9 @@
 		setAttrs(attrs){
 			for(let attr in attrs){
 				if(attr == 'style'){
-
+					// let cssText = '';
 					for(let _attr in attrs[attr]){
-						this.tag.style[_attr] = attr[_attr];
+						this.tag.style[_attr] = attrs[attr][_attr];
 					}
 					continue;
 				}
@@ -180,56 +182,147 @@
 		bindMouseMoveEvent(e){}
 		bindMouseUpEvent(e){}
 	}
+
+
+	class TextFactory{
+		constructor(primitiveProps, primitiveManager){
+			this.texts = primitiveProps.texts;
+			this.primitiveManager = primitiveManager;
+			this.x = primitiveProps.left;
+			this.y = primitiveProps.top;
+			this.fill = primitiveProps.color;
+			this.fontSize = primitiveProps.fontSize;
+			this['font-size'] = primitiveProps.fontSize;
+			this.textTranslate = primitiveProps.textTranslate;
+
+			this.viewer = primitiveProps.viewer;
+			this.svgRef =null;
+			this.domRef =null;
+			this.drapMaskRef = null;
+			this.canDrap = false;
+			this.create();
+
+		}
+
+		create(){
+			let tspan = '';
+			for(let i=0; i< this.texts.length; i++){
+				tspan+=`\n<tspan x="${this.x}" y="${this.y+i*this.fontSize}">${this.texts[i]}</tspan>`;
+			}
+			console.log(this, 'dddddddddddd')
+			this.svgRef = new CreateSVG('text', this);
+			this.domRef = this.svgRef.tag;
+			this.domRef.innerHTML = tspan;
+
+			this.viewer.querySelector('g').appendChild(this.svgRef.tag);
+		}
+	}
 	
 	//文本类
 	class Text extends EventController{
 		constructor(viewer, primitiveManager){
 			super(viewer, primitiveManager);
 			this.initData = {
-				text:'',
+				viewer:this.viewer,
+				texts:[],
 				textTranslate:[0,0],
 				color:'#333',
 				fontSize:14,
 				hoverColor:'#222',
-				lineHeight:30,
+				lineHeight:'100%',
 				left:0,
 				top:0,
-				maxWidth:this.viewer.offsetWidth,
-				minWidth:100,
-				minHeight:30,
-				style:''
+				width:200,
+				height:100,
+				style:'',
+				isWriting:false
 			}
+			this.primitiveManager = primitiveManager;
 			this.primitive = null;
+			this.preventDefault();
 		}
 
 		createAttrs(){
 			this.initData.textTranslate = JSON.parse(JSON.stringify(this.initData.textTranslate));
+			this.initData.texts = JSON.parse(JSON.stringify(this.initData.texts));
 			return {...this.initData};
 		}
 
+
+
 		createStyle(styleObj){
 			let style = {};
-			let { minHeight, maxWidth, minWidth, lineHeight, left, top, color, fontSize, textTranslate } = styleObj;
+			let { height, width, lineHeight, left, top, color, fontSize, textTranslate } = styleObj;
 			style.transform = `translate(${textTranslate[0]}px, ${textTranslate[1]}px)`;
-			style.minHeight = minHeight+'px';
-			style.maxWidth = maxWidth+'px';
-			style.minWidth = minWidth+'px';
-			style.lineHeight = lineHeight+'px';
+			style.height = 100+'px';
+			style.width = 200+'px';
+			style.lineHeight = lineHeight;
 			style.left = left+'px';
 			style.top = top+'px';
 			style.fontSize = fontSize+'px';
 			style.color = color;
+			style.position = 'absolute';
+			style.outline = 'none';
+			style.resize = 'none';
+			style.overflowY = 'hidden';
+			style.border = '1px solid red';
 			return {style};
 		}
 
+		//阻挡右键默认菜单
+		preventDefault(obj){
+			if(obj) {
+				obj.oncontextmenu = (e)=>{e.preventDefault()} 
+				return false;
+			}
+			document.querySelector('svg').oncontextmenu = (e)=>{e.preventDefault()}
+		}
+
 		bindMouseDownEvent(e){
+			if(!!this.primitive && this.primitive.isWriting) return;
 			let x = e.offsetX;
 			let y = e.offsetY;
-			this.primitive.textRef = new CreateSVG('textarea', this.createStyle(this.initData));
-			this.primitive.domRef = this.primitive.textRef.tag;
-			
+			this.primitive = this.createAttrs();
+			this.primitive.left = x;
+			this.primitive.top = y;
+			this.primitive.isWriting = true;
 
+			this.primitive.svgRef = new CreateSVG('textarea', this.createStyle({...this.primitive}));
+			this.primitive.domRef = this.primitive.svgRef.tag;
+			this.viewer.parentNode.appendChild(this.primitive.domRef);
+
+			this.preventDefault(this.primitive.domRef);
+			this.bindTextChangEvent();
+			this.bindRightClickEvent();
+			
 		}
+
+		//输入事件
+		bindTextChangEvent(){
+			this.primitive.domRef.oninput = e=>{
+				this.primitive.texts= e.target.value.split(/\n|\r|\r\n/);
+			}
+		}
+
+		//右键结束
+		bindRightClickEvent(){
+			let rightClick = e=>{
+				if(e.which != 3) return;
+				if(!this.primitive.domRef) return false;
+				this.primitive.isWriting = false;
+				this.primitiveManager.isDrawing = false;
+				
+				this.primitive.domRef.remove();
+				this.primitive.domRef = null;
+				this.primitive.svgRef = null;
+				let primitive = new TextFactory({...this.primitive}, this.primitiveManager);
+				this.primitiveManager.primitives.push(primitive);
+				this.primitiveManager.currentPrimitive = primitive;
+				document.removeEventListener('mousedown', rightClick);
+			}
+			document.addEventListener('mousedown', rightClick);
+		}
+
 	}
 
 	//路径创建类
@@ -506,9 +599,9 @@
 			this.primitive.domRef.remove();
 			this.primitive.domRef = null;
 			this.primitive.svgRef = null;
-			let primitive = new PathFactory({...this.primitive}, primitiveManager);
-			primitiveManager.primitives.push(primitive);
-			primitiveManager.currentPrimitive = primitive
+			let primitive = new PathFactory({...this.primitive}, this.primitiveManager);
+			this.primitiveManager.primitives.push(primitive);
+			this.primitiveManager.currentPrimitive = primitive
 		}
 	}
 
@@ -1123,9 +1216,9 @@
 			this.primitive.domRef.remove();
 			this.primitive.domRef = null;
 			this.primitive.svgRef = null;
-			let primitive = new EllipseFactory({...this.primitive}, primitiveManager);
-			primitiveManager.primitives.push(primitive);
-			primitiveManager.currentPrimitive = primitive
+			let primitive = new EllipseFactory({...this.primitive}, this.primitiveManager);
+			this.primitiveManager.primitives.push(primitive);
+			this.primitiveManager.currentPrimitive = primitive
 		}
 	}
 
@@ -1717,9 +1810,9 @@
 			this.primitive.domRef.remove();
 			this.primitive.domRef = null;
 			this.primitive.svgRef = null;
-			let primitive = new RectangleFactory({...this.primitive}, primitiveManager);
-			primitiveManager.primitives.push(primitive);
-			primitiveManager.currentPrimitive = primitive
+			let primitive = new RectangleFactory({...this.primitive}, this.primitiveManager);
+			this.primitiveManager.primitives.push(primitive);
+			this.primitiveManager.currentPrimitive = primitive
 		}
 	}
 
@@ -2160,9 +2253,9 @@
 			this.primitive.domRef.remove();
 			this.primitive.domRef = null;
 			this.primitive.svgRef = null;
-			let primitive = new PolygoneArrowFactory({...this.primitive}, primitiveManager);
-			primitiveManager.primitives.push(primitive);
-			primitiveManager.currentPrimitive = primitive;
+			let primitive = new PolygoneArrowFactory({...this.primitive}, this.primitiveManager);
+			this.primitiveManager.primitives.push(primitive);
+			this.primitiveManager.currentPrimitive = primitive;
 		}
 	}
 	window.primitiveManager = new PrimitiveManager();
