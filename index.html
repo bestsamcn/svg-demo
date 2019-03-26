@@ -80,7 +80,7 @@
 		 */
 		setAttrs(attrs){
 			for(let attr in attrs){
-				if(attr == 'style'){
+				if(attr == 'style' && attrs[attr] instanceof Object){
 					for(let _attr in attrs[attr]){
 						this.tag.style[_attr] = attrs[attr][_attr];
 					}
@@ -188,6 +188,7 @@
 
 	class TextFactory{
 		constructor(primitiveProps, primitiveManager){
+			this.type = 'text';
 			this.texts = primitiveProps.texts;
 			this.primitiveManager = primitiveManager;
 			this.x = primitiveProps.left;
@@ -282,7 +283,8 @@
 		//样式
 		createStyle(){
 			let style = {};
-			let { height, width, lineHeight, left, top, fill, fontSize, textTranslate, x, y } = this;
+			let { lineHeight, left, top, fill, fontSize, textTranslate, x, y } = this;
+			let { width, height } = this.domRef.getBBox();
 			style.transform = `translate(${textTranslate[0]}px, ${textTranslate[1]}px)`;
 			style.height = height+'px';
 			style.width = width+'px';
@@ -372,7 +374,8 @@
 
 		//更新遮罩位置
 		updateDrapMask(pointerEvents){
-			let {x, y, width, height} = this;
+			let {x, y} = this;
+			let { width, height } = this.domRef.getBBox();
 			let styleObj = {
 				position:'absolute',
 				left:x + this.textTranslate[0] + 'px',
@@ -474,6 +477,12 @@
 			
 			this.textRef = null;
 			this.spanRef = null;
+			if(!this.texts || (this.texts.length == 1 && !this.texts[0])){
+				this.primitiveManager.primitives.splice(this.primitiveManager.primitives.indexOf(this), 1);
+				this.domRef.remove();
+				this.domRef = null;
+				this.svgRef = null;
+			}
 		}
 	}
 	
@@ -642,7 +651,11 @@
 		}
 
 		//阻挡右键默认菜单
-		preventDefault(){
+		preventDefault(obj){
+			if(obj) {
+				obj.oncontextmenu = (e)=>{e.preventDefault()} 
+				return false;
+			}
 			document.querySelector('svg').oncontextmenu = (e)=>{e.preventDefault()}
 		}
 
@@ -683,9 +696,9 @@
 			//绑定拖拽事件
 			this.bindDrapEvent();
 
-
 			//点击右键遮罩
 			document.addEventListener('mousedown', this.onDisppear.bind(this));
+			this.preventDefault(this.drapMaskRef);
 		}
 
 		//更新遮罩位置
