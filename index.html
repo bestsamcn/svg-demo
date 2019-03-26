@@ -45,6 +45,14 @@
 </style>
 </head>
 <body>
+	<div style="position:absolute;left:0;top:0;z-index: 100">
+		<button id="arrow" >箭头</button>
+		<button id="rectancle" >矩形</button>
+		<button id="ellipse" >椭圆</button>
+		<button id="path" >画笔</button>
+		<button id="text" >文本</button>
+		<button id="clear" >清空</button>
+	</div>
     <div class="svg" style="width:600px; height:600px;border:1px solid #333; position: relative;">
     	<svg pointer-events="painted" width="600" height="600" id="svg" style="position:absolute; left:0px; top:0px;">
     		<g id="ggg" pointer-events="inherit">
@@ -152,7 +160,17 @@
 		constructor(viewer, primitiveManager){
 			this.viewer = viewer;
 			this.primitiveManager = primitiveManager;
-			this.viewer.addEventListener('mousedown', this._bindMouseDownEvent.bind(this));
+
+			//保存引用
+			this.__bindMouseDownEvent = this._bindMouseDownEvent.bind(this);
+
+			//状态
+			this._isRunning = false;
+			
+		}
+
+		get isRunning(){
+			return this._isRunning;
 		}
 		
 		_bindMouseDownEvent(e){
@@ -183,23 +201,36 @@
 		bindMouseDownEvent(e){}
 		bindMouseMoveEvent(e){}
 		bindMouseUpEvent(e){}
+
+		
+		//开始
+		start(){
+			this._isRunning = true;
+			this.viewer.addEventListener('mousedown', this.__bindMouseDownEvent);
+		}
+		
+		//结束
+		stop(){
+			this._isRunning = false;
+			this.viewer.removeEventListener('mousedown', this.__bindMouseDownEvent);
+		}
 	}
 
 
 	class TextFactory{
 		constructor(primitiveProps, primitiveManager){
-			this.type = 'text';
+			this.name = 'text';
 			this.texts = primitiveProps.texts;
 			this.primitiveManager = primitiveManager;
-			this.x = primitiveProps.left;
-			this.y = primitiveProps.top;
+			this.x = primitiveProps.x || primitiveProps.left || 0;
+			this.y = primitiveProps.y || primitiveProps.top || 0;
 			this.width = primitiveProps.width;
 			this.height = primitiveProps.height;
-			this.fill = primitiveProps.color;
+			this.fill = primitiveProps.fill || primitiveProps.color || 'red';
 			this.lineHeight = primitiveProps.lineHeight;
-			this.hoverFill = primitiveProps.hoverColor;
+			this.hoverFill = primitiveProps.hoverFill || primitiveProps.hoverColor || 'green';
 			this.fontSize = primitiveProps.fontSize;
-			this['font-size'] = primitiveProps.fontSize+'';
+			this['font-size'] = this.fontSize || 16;
 			this.textTranslate = primitiveProps.textTranslate;
 			this.viewer = primitiveProps.viewer;
 
@@ -277,6 +308,8 @@
 				this.createDrapMask();
 				this.viewer.parentNode.style.userSelect = 'none';
 				e.stopPropagation();
+
+				this.viewer.parentNode.style.userSelect = 'none';
 			});
 		}
 		
@@ -399,17 +432,21 @@
 			document.addEventListener('keydown', e=>{
 				if(e.which == 37){
 					this.textTranslate[0] -= 1;
+					this.updateAll();
 				}
 				if(e.which == 38){
 					this.textTranslate[1] -= 1;
+					this.updateAll();
 				}
 				if(e.which == 39){
 					this.textTranslate[0] += 1;
+					this.updateAll();
 				}
 				if(e.which == 40){
 					this.textTranslate[1] += 1;
+					this.updateAll();
 				}
-				this.updateAll();
+				
 			});
 		}
 
@@ -490,6 +527,7 @@
 	class Text extends EventController{
 		constructor(viewer, primitiveManager){
 			super(viewer, primitiveManager);
+			this.name = 'text';
 			this.initData = {
 				viewer:this.viewer,
 				texts:[],
@@ -621,7 +659,7 @@
 	//路径创建类
 	class PathFactory{
 		constructor(primitiveProps, primitiveManage){
-			this.type = 'path';
+			this.name = 'path';
 			this.viewer = primitiveProps.viewer;
 			this.style = primitiveProps.style;
 			this.hoverStyle = primitiveProps.hoverStyle;
@@ -678,6 +716,8 @@
 				this.primitiveManager.isDrawing = true;
 				this.createDrapMask();
 				e.stopPropagation();
+
+				this.viewer.parentNode.style.userSelect = 'none';
 			});
 		}
 
@@ -727,17 +767,21 @@
 			document.addEventListener('keydown', e=>{
 				if(e.which == 37){
 					this.pathTranslate[0] -= 1;
+					this.updateAll();
 				}
 				if(e.which == 38){
 					this.pathTranslate[1] -= 1;
+					this.updateAll();
 				}
 				if(e.which == 39){
 					this.pathTranslate[0] += 1;
+					this.updateAll();
 				}
 				if(e.which == 40){
 					this.pathTranslate[1] += 1;
+					this.updateAll();
 				}
-				this.updateAll();
+				
 			});
 		}
 
@@ -791,6 +835,8 @@
 			this.drapMaskRef && this.drapMaskRef.remove();
 			this.drapMaskRef = null;
 			this.domRef.style = this.style;
+
+			this.viewer.parentNode.style.userSelect = 'initial';
 		}
 	}
 
@@ -799,6 +845,7 @@
 	class Path extends EventController{
 		constructor(viewer, primitiveManager){
 			super(viewer, primitiveManager);
+			this.name = 'path';
 			this.viewer = viewer;
 			this.primitiveManager = primitiveManager;
 			this.initData = {
@@ -823,7 +870,7 @@
 			this.lasty = 0;
 
 			this.primitive = null;
-			this.bindShiftEvent();
+			
 		}
 
 		createAttrs(){
@@ -856,6 +903,7 @@
 			let x = e.offsetX;
 			let y = e.offsetY;
 			this.primitive = this.createAttrs();
+			this.bindShiftEvent();
 			this.primitive.originx = x;
 			this.primitive.originy = y;
 			this.lastx = x;
@@ -905,7 +953,7 @@
 	//椭圆创建类
 	class EllipseFactory{
 		constructor(primitiveProps, primitiveManage){
-			this.type = 'ellipse';
+			this.name = 'ellipse';
 			this.viewer = primitiveProps.viewer;
 			this.style = primitiveProps.style;
 			this.hoverStyle = primitiveProps.hoverStyle;
@@ -979,6 +1027,8 @@
 				this.primitiveManager.isDrawing = true;
 				this.createDrapMask();
 				e.stopPropagation();
+
+				this.viewer.parentNode.style.userSelect = 'none';
 			});
 		}
 
@@ -1094,17 +1144,21 @@
 			document.addEventListener('keydown', e=>{
 				if(e.which == 37){
 					this.ellipseTranslate[0] -= 1;
+					this.updateAll();
 				}
 				if(e.which == 38){
 					this.ellipseTranslate[1] -= 1;
+					this.updateAll();
 				}
 				if(e.which == 39){
 					this.ellipseTranslate[0] += 1;
+					this.updateAll();
 				}
 				if(e.which == 40){
 					this.ellipseTranslate[1] += 1;
+					this.updateAll();
 				}
-				this.updateAll();
+				
 			});
 		}
 
@@ -1380,6 +1434,8 @@
 			this.drapMaskRef && this.drapMaskRef.remove();
 			this.drapMaskRef = null;
 			this.domRef.style = this.style;
+
+			this.viewer.parentNode.style.userSelect = 'initial';
 		}
 	}
 
@@ -1388,6 +1444,7 @@
 	class Ellipse extends EventController{
 		constructor(viewer, primitiveManager){
 			super(viewer, primitiveManager);
+			this.name = 'ellipse';
 			this.viewer = viewer;
 			this.primitiveManager = primitiveManager;
 			this.initData = {
@@ -1409,7 +1466,7 @@
 			}
 
 			this.primitive = null;
-			this.bindShiftEvent();
+			
 		}
 
 		createAttrs(){
@@ -1433,6 +1490,7 @@
 
 		bindMouseDownEvent(e){
 			this.primitive = this.createAttrs();
+			this.bindShiftEvent();
 			let x = e.clientX;
 			let y = e.clientY;
 			this.primitive.cx = x;
@@ -1521,7 +1579,7 @@
 
 	class RectangleFactory{
 		constructor(primitiveProps, primitiveManager){
-			this.type = 'rectancle';
+			this.name = 'rectancle';
 			this.viewer = primitiveProps.viewer;
 			this.style = primitiveProps.style;
 			this.hoverStyle = primitiveProps.hoverStyle;
@@ -1590,6 +1648,8 @@
 				this.primitiveManager.isDrawing = true;
 				this.createDrapMask();
 				e.stopPropagation();
+
+				this.viewer.parentNode.style.userSelect = 'none';
 			});
 		}
 
@@ -1603,17 +1663,21 @@
 			document.addEventListener('keydown', e=>{
 				if(e.which == 37){
 					this.rectTranslate[0] -= 1;
+					this.updateAll();
 				}
 				if(e.which == 38){
 					this.rectTranslate[1] -= 1;
+					this.updateAll();
 				}
 				if(e.which == 39){
 					this.rectTranslate[0] += 1;
+					this.updateAll();
 				}
 				if(e.which == 40){
 					this.rectTranslate[1] += 1;
+					this.updateAll();
 				}
-				this.updateAll();
+				
 			});
 		}
 		
@@ -1984,6 +2048,8 @@
 			this.drapMaskRef && this.drapMaskRef.remove();
 			this.drapMaskRef = null;
 			this.domRef.style = this.style;
+
+			this.viewer.parentNode.style.userSelect = 'initial';
 		}
 
 
@@ -1992,7 +2058,9 @@
 	//矩形类
 	class Rectangle extends EventController{
 		constructor(viewer, primitiveManager){
+			
 			super(viewer, primitiveManager);
+			this.name = 'rectancle';
 			this.viewer = viewer;
 			this.primitiveManager = primitiveManager;
 			this.initData = {
@@ -2014,7 +2082,7 @@
 			}
 
 			this.primitive = null;
-			this.bindShiftEvent();
+			
 		}
 
 		createAttrs(){
@@ -2026,6 +2094,7 @@
 			let x = e.clientX;
 			let y = e.clientY;
 			this.primitive = this.createAttrs();
+			this.bindShiftEvent();
 			this.primitive.x = x;
 			this.primitive.y = y;
 			this.primitive.originx = x;
@@ -2115,10 +2184,10 @@
 
 	
 	//通过参数重新构造箭头
-	class PolygoneArrowFactory{
+	class ArrowFactory{
 		constructor(primitiveProps, primitiveManager){
 			
-			this.type = 'polygonArrow';
+			this.name = 'arrow';
 			this.initData = JSON.parse(JSON.stringify(primitiveProps.initData));
 			this.hoverStyle = primitiveProps.hoverStyle;
 			this.style = primitiveProps.style;
@@ -2185,6 +2254,8 @@
 				this.primitiveManager.isDrawing = true;
 				this.createDrapMask();
 				e.stopPropagation();
+
+				this.viewer.parentNode.style.userSelect = 'none';
 			});
 		}
 
@@ -2385,15 +2456,19 @@
 			this.drapMaskRef && this.drapMaskRef.remove();
 			this.drapMaskRef = null;
 			this.domRef.style = this.style;
+
+			this.viewer.parentNode.style.userSelect = 'initial';
 		}
 	}
 
 	
 	//绘制箭头
-	class PolygonArrow extends EventController{
+	class Arrow extends EventController{
 		constructor(viewer, primitiveManager){
 			super(viewer, primitiveManager);
 			this.primitiveManager = primitiveManager;
+
+			this.name = 'arrow';
 
 			/********************************/
 			/*	        	  A	 			*/	
@@ -2439,6 +2514,8 @@
 			
 			this.primitive = null;
 		}
+
+
 		
 		//初始化属性
 		createAttrs(){
@@ -2550,16 +2627,43 @@
 			this.primitive.domRef.remove();
 			this.primitive.domRef = null;
 			this.primitive.svgRef = null;
-			let primitive = new PolygoneArrowFactory({...this.primitive}, this.primitiveManager);
+			let primitive = new ArrowFactory({...this.primitive}, this.primitiveManager);
 			this.primitiveManager.primitives.push(primitive);
 			this.primitiveManager.currentPrimitive = primitive;
 		}
+
 	}
 	window.primitiveManager = new PrimitiveManager();
-	// new Text(svg, primitiveManager);
-	// new Path(svg, primitiveManager);
-	// new Ellipse(svg, primitiveManager);
-	// new Rectangle(svg, primitiveManager);
-	new PolygonArrow(svg, primitiveManager);
+	let text = new Text(svg, primitiveManager);
+	let path = new Path(svg, primitiveManager);
+	let ellipse = new Ellipse(svg, primitiveManager);
+	let rectancle = new Rectangle(svg, primitiveManager);
+	let arrow = new Arrow(svg, primitiveManager);
 
+	let tools = [text, path, ellipse, rectancle, arrow];
+	
+	let setTool = tool=>{
+		document.getElementById(tool.name).onclick =()=>{
+			if(tool.isRunning){
+				return tool.stop();
+			}
+			for(let _tool of tools){
+				_tool.stop();
+			}
+			tool.start();
+		};
+	}
+	setTool(text);
+	setTool(path);
+	setTool(ellipse);
+	setTool(rectancle);
+	setTool(arrow);
+
+	document.getElementById('clear').onclick = ()=>{
+		primitiveManager.primitives.forEach(item=>{
+			item.domRef.remove();
+			item = null;
+		})
+	}
+	
 </script>
