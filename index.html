@@ -357,7 +357,7 @@
 				this.spanRef.innerHTML = '';
 				for(let i=0; i< value.length; i++){
 					let val = value.charAt(i);
-					val == ' ' && (val = '\s');
+					val == ' ' && (val = '');
 					this.spanRef.innerHTML += val;
 					if(this.spanRef.offsetWidth > this.textRef.offsetWidth+6){
 						text += '\#';
