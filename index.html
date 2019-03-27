@@ -56,7 +56,7 @@
 		<button id="black" >black</button>
 		<button id="white" >white</button>
 		<button id="arrow" >箭头</button>
-		<button id="rectancle" >矩形</button>
+		<button id="rectangle" >矩形</button>
 		<button id="ellipse" >椭圆</button>
 		<button id="path" >画笔</button>
 		<button id="text" >文本</button>
@@ -171,6 +171,38 @@
 	}
 
 
+	class AnnotationFactory{
+		constructor(viewer){
+			this.viewer = viewer;
+
+			this.shift = false;
+		}
+
+		//阻挡右键默认菜单
+		preventDefault(obj){
+			if(obj) {
+				obj.oncontextmenu = (e)=>{e.preventDefault()} 
+				return false;
+			}
+			this.viewer.oncontextmenu = (e)=>{e.preventDefault()}
+		}
+
+		//shift绑定
+		bindShiftEvent(){
+			document.addEventListener('keydown', e=>{
+				if(e.which == 16){
+					this.shift = true;
+				}
+			});
+			document.addEventListener('keyup', e=>{
+				if(e.which == 16){
+					this.shift = false;
+				}
+			});
+		}
+	}
+
+
 	
 	//图形管理类
 	class AnnotationManager {
@@ -183,10 +215,37 @@
 			
 			//工具集合
 			this.arrow = null;
-			this.rectancle = null;
+			this.rectangle = null;
 			this.ellipse = null;
 			this.path = null;
 			this.text = null;
+		}
+
+		clear(){
+			for(let annotation of this.annotations){
+				let idx = this.annotations.indexOf(annotation);
+				if(idx == -1) return false;
+				annotation.domRef && annotation.domRef.remove();
+
+				annotation.drapMaskRef && annotation.drapMaskRef.remove();
+				annotation = null;
+			}
+			this.isDrawing = false;
+			this.annotations = [];
+		}
+		
+		/**
+		 * 删除指定注释
+		 * @param  {AnnotationFactory} annotation [description]
+		 */
+		delete(annotation){
+			let idx = this.annotations.indexOf(annotation);
+			if(idx == -1) return false;
+			annotation.domRef && annotation.domRef.remove();
+			annotation.drapMaskRef && (annotation.drapMaskRef.innerHTML = '') && annotation.drapMaskRef.remove();
+			this.annotations.splice(idx, 1);
+			annotation = null;
+			this.isDrawing = false;
 		}
 
 		get currentAnnotation(){
@@ -207,32 +266,37 @@
 				_annotation.canDrap = true;
 			}
 			this._currentAnnotation = _annotation;
+			if(this.annotations.indexOf(_annotation) == -1) this.annotations.push(_annotation);
 		}
 		
+		//创建工具
 		createAnnotationTools(){
 			this.arrow = new Arrow(this.viewer, this);
-			this.rectancle = new Rectangle(this.viewer, this);
+			this.rectangle = new Rectangle(this.viewer, this);
 			this.ellipse = new Ellipse(this.viewer, this);
 			this.path = new Path(this.viewer, this);
 			this.text = new Text(this.viewer, this);
 		}
 		
+		//设置大小
 		setSize(size){
 			this.arrow.setSize(ArrowSize[size]);
-			this.rectancle.setSize(BordeSize[size]);
+			this.rectangle.setSize(BordeSize[size]);
 			this.ellipse.setSize(BordeSize[size]);
 			this.path.setSize(BordeSize[size]);
 			this.text.setSize(FontSize[size]);
 		}
-
+		
+		//设置颜色
 		setColor(color){
 			this.arrow.setSize(Color[size]);
-			this.rectancle.setSize(Color[size]);
+			this.rectangle.setSize(Color[size]);
 			this.ellipse.setSize(Color[size]);
 			this.path.setSize(Color[size]);
 			this.text.setSize(Color[size]);
 		}
 	}
+	
 
 
 	//事件控制类
@@ -297,8 +361,9 @@
 	}
 
 
-	class TextFactory{
+	class TextFactory extends AnnotationFactory{
 		constructor(annotationProps, annotationManager){
+			super(annotationManager.viewer);
 			this.name = 'text';
 			this.texts = annotationProps.texts;
 			this.annotationManager = annotationManager;
@@ -312,7 +377,7 @@
 			this.fontSize = annotationProps.fontSize;
 			this['font-size'] = this.fontSize || 16;
 			this.textTranslate = annotationProps.textTranslate;
-			this.viewer = annotationProps.viewer;
+			this.viewer = annotationManager.viewer;
 
 			this._style = annotationProps._style; 
 
@@ -346,6 +411,8 @@
 			this.bindHoverEvent();
 			this.bindClickEvent();
 			this.preventDefault();
+
+			this.annotationManager.currentAnnotation = this;
 		}
 		
 		//更新svg文本
@@ -357,16 +424,6 @@
 			this.domRef.innerHTML = tspan;		
 		}
 
-
-
-		//阻挡右键默认菜单
-		preventDefault(obj){
-			if(obj) {
-				obj.oncontextmenu = (e)=>{e.preventDefault()} 
-				return false;
-			}
-			document.querySelector('svg').oncontextmenu = (e)=>{e.preventDefault()}
-		}
 
 		//绑定hover事件
 		bindHoverEvent(){
@@ -752,8 +809,6 @@
 
 				if(this.annotation.texts.length < 1 ) return;
 				let annotation = new TextFactory({...this.annotation}, this.annotationManager);
-				this.annotationManager.annotations.push(annotation);
-				this.annotationManager.currentAnnotation = annotation;
 				document.removeEventListener('mousedown', rightClick);
 			}
 			document.addEventListener('mousedown', rightClick);
@@ -762,10 +817,11 @@
 	}
 
 	//路径创建类
-	class PathFactory{
+	class PathFactory extends AnnotationFactory{
 		constructor(annotationProps, annotationManage){
+			super(annotationManage.viewer);
 			this.name = 'path';
-			this.viewer = annotationProps.viewer;
+			this.viewer = annotationManager.viewer;
 			this.style = annotationProps.style;
 			this.hoverStyle = annotationProps.hoverStyle;
 			this.originx = annotationProps.originx;
@@ -791,15 +847,8 @@
 			this.bindHoverEvent();
 			this.bindClickEvent();
 			this.preventDefault();
-		}
 
-		//阻挡右键默认菜单
-		preventDefault(obj){
-			if(obj) {
-				obj.oncontextmenu = (e)=>{e.preventDefault()} 
-				return false;
-			}
-			document.querySelector('svg').oncontextmenu = (e)=>{e.preventDefault()}
+			this.annotationManager.currentAnnotation = this;
 		}
 
 		//绑定hover事件
@@ -1075,16 +1124,16 @@
 			this.annotation.domRef = null;
 			this.annotation.svgRef = null;
 			let annotation = new PathFactory({...this.annotation}, this.annotationManager);
-			this.annotationManager.annotations.push(annotation);
 			this.annotationManager.currentAnnotation = annotation
 		}
 	}
 
 	//椭圆创建类
-	class EllipseFactory{
+	class EllipseFactory extends AnnotationFactory{
 		constructor(annotationProps, annotationManage){
+			super(annotationManage.viewer);
 			this.name = 'ellipse';
-			this.viewer = annotationProps.viewer;
+			this.viewer = annotationManager.viewer;
 			this.style = annotationProps.style;
 			this.hoverStyle = annotationProps.hoverStyle;
 			this.cx = annotationProps.cx;
@@ -1117,20 +1166,8 @@
 			this.preventDefault();
 			this.bindShiftEvent();
 			this.bindDirectionEvent();
-		}
 
-		//shift绑定
-		bindShiftEvent(){
-			document.addEventListener('keydown', e=>{
-				if(e.which == 16){
-					this.shift = true;
-				}
-			});
-			document.addEventListener('keyup', e=>{
-				if(e.which == 16){
-					this.shift = false;
-				}
-			});
+			this.annotationManager.currentAnnotation = this;
 		}
 
 		//绑定hover事件
@@ -1142,11 +1179,6 @@
 			this.domRef.onmouseleave = ()=>{
 				this.domRef.style = this.style;
 			}
-		}
-
-		//阻挡右键默认菜单
-		preventDefault(){
-			document.querySelector('svg').oncontextmenu = (e)=>{e.preventDefault()}
 		}
 
 		//绑定事件
@@ -1183,6 +1215,8 @@
 
 			//点击右键遮罩
 			document.addEventListener('mousedown', this.onDisppear.bind(this));
+
+			this.preventDefault(this.drapMaskRef);
 		}
 
 		//更新遮罩位置
@@ -1726,15 +1760,15 @@
 			this.annotation.domRef = null;
 			this.annotation.svgRef = null;
 			let annotation = new EllipseFactory({...this.annotation}, this.annotationManager);
-			this.annotationManager.annotations.push(annotation);
 			this.annotationManager.currentAnnotation = annotation
 		}
 	}
 
-	class RectangleFactory{
+	class RectangleFactory extends AnnotationFactory{
 		constructor(annotationProps, annotationManager){
-			this.name = 'rectancle';
-			this.viewer = annotationProps.viewer;
+			super(annotationManager.viewer);
+			this.name = 'rectangle';
+			this.viewer = annotationManager.viewer;
 			this.style = annotationProps.style;
 			this.hoverStyle = annotationProps.hoverStyle;
 			this.x = annotationProps.x;
@@ -1767,21 +1801,11 @@
 			this.preventDefault();
 			this.bindShiftEvent();
 			this.bindDirectionEvent();
+
+			this.annotationManager.currentAnnotation = this;
 		}
 
-		//shift绑定
-		bindShiftEvent(){
-			document.addEventListener('keydown', e=>{
-				if(e.which == 16){
-					this.shift = true;
-				}
-			});
-			document.addEventListener('keyup', e=>{
-				if(e.which == 16){
-					this.shift = false;
-				}
-			});
-		}
+		
 
 		//绑定hover事件
 		bindHoverEvent(){
@@ -1805,11 +1829,6 @@
 
 				this.viewer.parentNode.style.userSelect = 'none';
 			});
-		}
-
-		//阻挡右键默认菜单
-		preventDefault(){
-			document.querySelector('svg').oncontextmenu = (e)=>{e.preventDefault()}
 		}
 
 		//方向调整
@@ -2190,6 +2209,8 @@
 
 			//点击右键遮罩
 			document.addEventListener('mousedown', this.onDisppear.bind(this));
+
+			this.preventDefault(this.drapMaskRef);
 		}
 		
 		//消失
@@ -2214,7 +2235,7 @@
 		constructor(viewer, annotationManager){
 			
 			super(viewer, annotationManager);
-			this.name = 'rectancle';
+			this.name = 'rectangle';
 			this.viewer = viewer;
 			this.annotationManager = annotationManager;
 
@@ -2357,15 +2378,17 @@
 			this.annotation.domRef = null;
 			this.annotation.svgRef = null;
 			let annotation = new RectangleFactory({...this.annotation}, this.annotationManager);
-			this.annotationManager.annotations.push(annotation);
 			this.annotationManager.currentAnnotation = annotation
 		}
 	}
 
 	
 	//通过参数重新构造箭头
-	class ArrowFactory{
+	class ArrowFactory extends AnnotationFactory{
 		constructor(annotationProps, annotationManager){
+
+
+			super(annotationManager.viewer);
 			
 			this.name = 'arrow';
 			this.initData = JSON.parse(JSON.stringify(annotationProps.initData));
@@ -2399,7 +2422,7 @@
 
 
 			this.annotationManager = annotationManager;
-			this.viewer = annotationProps.viewer;
+			this.viewer = annotationManager.viewer;
 			this.create();
 		}
 
@@ -2416,6 +2439,7 @@
 			this.bindClickEvent();
 			this.preventDefault();
 			this.bindDirectionEvent();
+			this.annotationManager.currentAnnotation = this;
 		}
 
 		//绑定hover事件
@@ -2658,6 +2682,8 @@
 
 			//点击右键遮罩
 			document.addEventListener('mousedown', this.onDisppear.bind(this));
+
+			this.preventDefault(this.drapMaskRef);
 		}
 		
 		//消失
@@ -2866,15 +2892,22 @@
 			this.annotation.domRef = null;
 			this.annotation.svgRef = null;
 			let annotation = new ArrowFactory({...this.annotation}, this.annotationManager);
-			this.annotationManager.annotations.push(annotation);
 			this.annotationManager.currentAnnotation = annotation;
 		}
 
 	}
+
+
+	AnnotationManager.TextFactory = TextFactory;
+	AnnotationManager.PathFactory = PathFactory;
+	AnnotationManager.EllipseFactory = EllipseFactory;
+	AnnotationManager.RectangleFactory = RectangleFactory;
+	AnnotationManager.ArrowFactory = ArrowFactory;
+	window.AnnotationManager = AnnotationManager;
 	window.annotationManager = new AnnotationManager(svg);
 	window.annotationManager.createAnnotationTools();
 
-	let tools = [window.annotationManager.text, window.annotationManager.path, window.annotationManager.ellipse, window.annotationManager.rectancle, window.annotationManager.arrow];
+	let tools = [window.annotationManager.text, window.annotationManager.path, window.annotationManager.ellipse, window.annotationManager.rectangle, window.annotationManager.arrow];
 	
 	let setTool = tool=>{
 		document.getElementById(tool.name).onclick =()=>{
@@ -2892,10 +2925,7 @@
 	}
 
 	document.getElementById('clear').onclick = ()=>{
-		annotationManager.annotations.forEach(item=>{
-			item.domRef.remove();
-			item = null;
-		})
+		annotationManager.clear();
 	}
 	
 	let setSize = size=>{
