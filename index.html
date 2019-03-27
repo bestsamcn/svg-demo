@@ -46,10 +46,16 @@
 </head>
 <body>
 	<div style="position:absolute;left:0;top:0;z-index: 100">
-		<button id="arrow" >箭头</button>
 		<button id="small" >small</button>
 		<button id="middle" >middle</button>
 		<button id="large" >large</button>
+		<button id="red" >red</button>
+		<button id="yellow" >yellow</button>
+		<button id="blue" >blue</button>
+		<button id="green" >green</button>
+		<button id="black" >black</button>
+		<button id="white" >white</button>
+		<button id="arrow" >箭头</button>
 		<button id="rectancle" >矩形</button>
 		<button id="ellipse" >椭圆</button>
 		<button id="path" >画笔</button>
@@ -72,6 +78,39 @@
 <script>
 	let svg = document.querySelector('#svg');
 	let svgg = svg.querySelector('g');
+
+
+
+	//边框大小
+	const BorderSize = {
+		small:2,
+		middle:4,
+		large:6
+	}
+
+	//箭头大小
+	const ArrowSize = {
+		small:8,
+		middle:10,
+		large:12
+	}
+
+	//字体大小
+	const FontSize = {
+		small:12,
+		middle:14,
+		large:16
+	}
+	
+	//颜色
+	const Color = {
+		red:[255, 15, 0, 1],
+		yellow:[255, 190, 0, 1],
+		blue:[26, 155, 255, 1],
+		green:[26, 173, 25, 1],
+		black:[77, 77, 77, 1],
+		white:[255, 255, 255, 1],
+	}
 
 	class CreateTag{
 		constructor(tag, attrs){
@@ -174,16 +213,24 @@
 			this.arrow = new Arrow(this.viewer, this);
 			this.rectancle = new Rectangle(this.viewer, this);
 			this.ellipse = new Ellipse(this.viewer, this);
-			this.path = new path(this.viewer, this);
+			this.path = new Path(this.viewer, this);
 			this.text = new Text(this.viewer, this);
 		}
 		
 		setSize(size){
-			this.arrow.setSize(size);
-			this.rectancle.setSize(size);
-			this.ellipse.setSize(size);
-			this.path.setSize(size);
-			this.text.setSize(size);
+			this.arrow.setSize(ArrowSize[size]);
+			this.rectancle.setSize(BordeSize[size]);
+			this.ellipse.setSize(BordeSize[size]);
+			this.path.setSize(BordeSize[size]);
+			this.text.setSize(FontSize[size]);
+		}
+
+		setColor(color){
+			this.arrow.setSize(Color[size]);
+			this.rectancle.setSize(Color[size]);
+			this.ellipse.setSize(Color[size]);
+			this.path.setSize(Color[size]);
+			this.text.setSize(Color[size]);
 		}
 	}
 
@@ -563,6 +610,8 @@
 			this.name = 'text';
 			
 			this.size = FontSize.middle;
+			this.color = Color.red;
+
 			this.initData = null;
 			this.annotationManager = annotationManager;
 			this.annotation = null;
@@ -571,14 +620,17 @@
 		
 
 		createAttrs(){
-			console.log(this.size, 'adfasdfaf')
+
+			let _color = this.color;
+			let _hoverColor = JSON.parse(JSON.stringify(this.color));
+			_hoverColor[3] = 0.8;
 			this.initData = {
 				viewer:this.viewer,
 				texts:[],
 				textTranslate:[0, 0],
-				color:'red',
+				color:'rgba('+_color.toString()+')',
 				fontSize:this.size,
-				hoverColor:'green',
+				hoverColor:'rgba('+_hoverColor.toString()+')',
 				lineHeight:'16px',
 				left:0,
 				padding:0,
@@ -599,6 +651,14 @@
 		 */
 		setSize(size){
 			this.size = FontSize[size];
+		}
+
+		/**
+		 * 设置颜色
+		 * @param {Color} color 
+		 */
+		setColor(color){
+			this.color = Color[color];
 		}
 
 
@@ -899,6 +959,7 @@
 			this.lasty = 0;
 			
 			this.size = BorderSize.middle;
+			this.color = Color.red;
 
 			this.initData = null;
 			this.annotation = null;
@@ -913,10 +974,22 @@
 			this.size = BorderSize[size];
 		}
 
+		/**
+		 * 设置颜色
+		 * @param {Color} color 
+		 */
+		setColor(color){
+			this.color = Color[color];
+		}
+
 		createAttrs(){
+
+			let _color = this.color;
+			let _hoverColor = JSON.parse(JSON.stringify(this.color));
+			_hoverColor[3] = 0.8;
 			this.initData = {
 				viewer:this.viewer,
-				style:'stroke:red; fill:none; stroke-width:'+this.size,
+				style:'stroke:rgba('+_color.toString()+'); fill:none; stroke-width:'+this.size,
 				pathTranslate:[0, 0],
 				pathScale:[1, 1],
 				svgRef:null,
@@ -927,7 +1000,7 @@
 				d:'',
 				originx:0,
 				originy:0,
-				hoverStyle:'stroke:green; fill:none; stroke-width:'+this.size,
+				hoverStyle:'stroke:rgba('+_hoverColor.toString()+'); fill:none; stroke-width:'+this.size,
 			
 				'pointer-events':'all'
 			}
@@ -1506,38 +1579,27 @@
 			this.annotationManager = annotationManager;
 
 			this.size = BorderSize.middle;
-			this.initData = {
-				viewer:this.viewer,
-				style:'stroke:red; fill:none; stroke-width:'+this.size,
-				ellipseTranslate:[0, 0],
-				svgRef:null,
-				domRef:null,
-				shift:false,
-				canDrap:false,
-				hoverStyle:'stroke:green; fill:none; stroke-width:'+this.size,
-				cx:0,
-				cy:0,
-				rx:0,
-				ry:0,
-				originx:0,
-				originy:0,
-				'pointer-events':'all'
-			}
+			this.color = Color.red;
+
 			this.initData = null;
 			this.annotation = null;
 			
 		}
 
 		createAttrs(){
+
+			let _color = this.color;
+			let _hoverColor = JSON.parse(JSON.stringify(this.color));
+			_hoverColor[3] = 0.8;
 			this.initData = {
 				viewer:this.viewer,
-				style:'stroke:red; fill:none; stroke-width:'+this.size,
+				style:'stroke:rgba('+_color.toString()+'); fill:none; stroke-width:'+this.size,
 				ellipseTranslate:[0, 0],
 				svgRef:null,
 				domRef:null,
 				shift:false,
 				canDrap:false,
-				hoverStyle:'stroke:green; fill:none; stroke-width:'+this.size,
+				hoverStyle:'stroke:rgba('+_hoverColor.toString()+'); fill:none; stroke-width:'+this.size,
 				cx:0,
 				cy:0,
 				rx:0,
@@ -1556,6 +1618,14 @@
 		 */
 		setSize(size){
 			this.size = BorderSize[size];
+		}
+
+		/**
+		 * 设置颜色
+		 * @param {Color} color 
+		 */
+		setColor(color){
+			this.color = Color[color];
 		}
 
 		//shift绑定
@@ -2147,7 +2217,11 @@
 			this.name = 'rectancle';
 			this.viewer = viewer;
 			this.annotationManager = annotationManager;
+
+
 			this.size = BorderSize.middle;
+			this.color = Color.red;
+
 			this.initData = null;
 			this.annotation = null;
 			
@@ -2161,10 +2235,22 @@
 			this.size = BorderSize[size];
 		}
 
+		/**
+		 * 设置颜色
+		 * @param {Color} color 
+		 */
+		setColor(color){
+			this.color = Color[color];
+		}
+
 		createAttrs(){
+
+			let _color = this.color;
+			let _hoverColor = JSON.parse(JSON.stringify(this.color));
+			_hoverColor[3] = 0.8;
 			this.initData = {
 				viewer:this.viewer,
-				style:'stroke:red; fill:none; stroke-width:'+this.size,
+				style:'stroke:rgba('+_color.toString()+'); fill:none; stroke-width:'+this.size,
 				x:0,
 				y:0,
 				originx:0,
@@ -2176,7 +2262,7 @@
 				domRef:null,
 				shift:false,
 				canDrap:false,
-				hoverStyle:'stroke:green; fill:none; stroke-width:'+this.size,
+				hoverStyle:'stroke:rgba('+_hoverColor.toString()+'); fill:none; stroke-width:'+this.size,
 				'pointer-events':'all'
 			}
 
@@ -2298,7 +2384,6 @@
 
 			//拖拽对象，非dom
 			this.arrowOrigin = JSON.parse(JSON.stringify(annotationProps.arrowOrigin));
-			console.log(this.arrowOrigin)
 
 			this.ox = annotationProps.ox;//箭头起始点世界坐标x
 			this.oy = annotationProps.oy;//箭头起始点世界坐标y
@@ -2590,22 +2675,7 @@
 		}
 	}
 	
-	const BorderSize = {
-		small:2,
-		middle:4,
-		large:6
-	}
-	const ArrowSize = {
-		small:8,
-		middle:10,
-		large:12
-	}
 
-	const FontSize = {
-		small:12,
-		middle:14,
-		large:16
-	}
 	
 	//绘制箭头
 	class Arrow extends EventController{
@@ -2628,6 +2698,8 @@
 
 			this.initY = ArrowSize.large;
 
+			this.color = Color.red;
+
 			
 
 			
@@ -2640,6 +2712,14 @@
 		 */
 		setSize(size){
 			this.initY = ArrowSize[size];
+		}
+		
+		/**
+		 * 设置颜色
+		 * @param {Color} color 
+		 */
+		setColor(color){
+			this.color = Color[color];
 		}
 		
 		//初始化属性
@@ -2673,11 +2753,14 @@
 				width:initX,
 				height:initH,
 			}
+			let _color = this.color;
+			let _hoverColor = JSON.parse(JSON.stringify(this.color));
+			_hoverColor[3] = 0.8;
 			return {
 				viewer:this.viewer,
 				initData:JSON.parse(JSON.stringify(this.initData)),
-				hoverStyle:'fill:green',
-				style:'fill:red',
+				hoverStyle:'fill:rgba('+_hoverColor.toString()+')',
+				style:'fill:rgba('+_color.toString()+')',
 				points:JSON.parse(JSON.stringify(this.initData.points)),
 				// points:[[0, 9], [16, 7], [4,0], [16, 10], [4,20], [16, 20-7], [0, 11]],
 				//世界坐标移动
@@ -2788,14 +2871,10 @@
 		}
 
 	}
-	window.annotationManager = new AnnotationManager();
-	let text = new Text(svg, annotationManager);
-	let path = new Path(svg, annotationManager);
-	let ellipse = new Ellipse(svg, annotationManager);
-	let rectancle = new Rectangle(svg, annotationManager);
-	let arrow = new Arrow(svg, annotationManager);
+	window.annotationManager = new AnnotationManager(svg);
+	window.annotationManager.createAnnotationTools();
 
-	let tools = [text, path, ellipse, rectancle, arrow];
+	let tools = [window.annotationManager.text, window.annotationManager.path, window.annotationManager.ellipse, window.annotationManager.rectancle, window.annotationManager.arrow];
 	
 	let setTool = tool=>{
 		document.getElementById(tool.name).onclick =()=>{
@@ -2808,11 +2887,9 @@
 			tool.start();
 		};
 	}
-	setTool(text);
-	setTool(path);
-	setTool(ellipse);
-	setTool(rectancle);
-	setTool(arrow);
+	for(let tool of tools){
+		setTool(tool);
+	}
 
 	document.getElementById('clear').onclick = ()=>{
 		annotationManager.annotations.forEach(item=>{
@@ -2823,12 +2900,34 @@
 	
 	let setSize = size=>{
 		document.getElementById(size).onclick =()=>{
-			text.setSize(size);
-		};
+			for(let tool of tools){
+				tool.setSize(size);
+			}
+		}
 	}
+
+
+	let setColor = color=>{
+		document.getElementById(color).onclick =()=>{
+			for(let tool of tools){
+				tool.setColor(color);
+			}
+		}
+	}
+
+
 	setSize('small')
 	setSize('middle')
 	setSize('large')
+
+
+	setColor('red')
+	setColor('yellow')
+	setColor('blue')
+	setColor('green')
+	setColor('black')
+	setColor('white')
+
 
 	
 </script>
