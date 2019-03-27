@@ -47,6 +47,9 @@
 <body>
 	<div style="position:absolute;left:0;top:0;z-index: 100">
 		<button id="arrow" >箭头</button>
+		<button id="small" >small</button>
+		<button id="middle" >middle</button>
+		<button id="large" >large</button>
 		<button id="rectancle" >矩形</button>
 		<button id="ellipse" >椭圆</button>
 		<button id="path" >画笔</button>
@@ -70,7 +73,7 @@
 	let svg = document.querySelector('#svg');
 	let svgg = svg.querySelector('g');
 
-	class CreateSVG{
+	class CreateTag{
 		constructor(tag, attrs){
 			if(['path', 'line', 'ellipse', 'circle', 'rect', 'polygon', 'polyline', 'text'].includes(tag)){
 				this.tag = document.createElementNS('http://www.w3.org/2000/svg', tag);
@@ -102,11 +105,17 @@
 					this.tag.setAttribute('transform', `translate(${attrs[attr].join(' ').toString()})`);	
 					continue;
 				}
-
+				
 
 				
 				//箭头
 				if(attr == 'domRef' || attr == 'polygon') continue;
+
+				// if(attr == 'arrowOrigin'){
+				// 	this.tag.setAttribute('transform-box', 'fill-box');
+				// 	this.tag.setAttribute('transform-origin', `${attrs[attr][0]} ${attrs[attr][1]}px`);
+				// 	continue;
+				// }
 				if(attr == 'points'){
 					this.tag.setAttribute(attr, attrs[attr].join(' ').toString());	
 					continue;
@@ -125,41 +134,65 @@
 
 	
 	//图形管理类
-	class PrimitiveManager {
-		constructor(){
-			this.primitives = [];
-			this._currentPrimitive = null;
+	class AnnotationManager {
+		constructor(viewer){
+			this.annotations = [];
+			this._currentAnnotation = null;
 			this.isDrawing = false;
 
+			this.viewer = viewer;
+			
+			//工具集合
+			this.arrow = null;
+			this.rectancle = null;
+			this.ellipse = null;
+			this.path = null;
+			this.text = null;
 		}
 
-		get currentPrimitive(){
-			return this._currentPrimitive;
+		get currentAnnotation(){
+			return this._currentAnnotation;
 		}
-		set currentPrimitive(_primitive){
-			for(let primitive of this.primitives){
+		set currentAnnotation(_annotation){
+			for(let annotation of this.annotations){
 				this.isDrawing = false;
 
 				//恢复原始状态
-				primitive.canDrap = false;
-				primitive['pointer-events'] = 'all';
-				primitive.svgRef.setAttrs(primitive);
-				primitive.drapMaskRef && (primitive.drapMaskRef.style.display='none');
-				primitive.domRef.style = primitive.style;
+				annotation.canDrap = false;
+				annotation['pointer-events'] = 'all';
+				annotation.svgRef.setAttrs(annotation);
+				annotation.drapMaskRef && (annotation.drapMaskRef.style.display='none');
+				annotation.domRef.style = annotation.style;
 			}
-			if(!!_primitive){
-				_primitive.canDrap = true;
+			if(!!_annotation){
+				_annotation.canDrap = true;
 			}
-			this._currentPrimitive = _primitive;
+			this._currentAnnotation = _annotation;
+		}
+		
+		createAnnotationTools(){
+			this.arrow = new Arrow(this.viewer, this);
+			this.rectancle = new Rectangle(this.viewer, this);
+			this.ellipse = new Ellipse(this.viewer, this);
+			this.path = new path(this.viewer, this);
+			this.text = new Text(this.viewer, this);
+		}
+		
+		setSize(size){
+			this.arrow.setSize(size);
+			this.rectancle.setSize(size);
+			this.ellipse.setSize(size);
+			this.path.setSize(size);
+			this.text.setSize(size);
 		}
 	}
 
 
 	//事件控制类
 	class EventController{
-		constructor(viewer, primitiveManager){
+		constructor(viewer, annotationManager){
 			this.viewer = viewer;
-			this.primitiveManager = primitiveManager;
+			this.annotationManager = annotationManager;
 
 			//保存引用
 			this.__bindMouseDownEvent = this._bindMouseDownEvent.bind(this);
@@ -175,20 +208,20 @@
 		
 		_bindMouseDownEvent(e){
 			if(e.which !=1 ) return false;
-			if(this.primitiveManager.isDrawing) return;
-			this.primitiveManager.isDrawing = true;
+			if(this.annotationManager.isDrawing) return;
+			this.annotationManager.isDrawing = true;
 			this.bindMouseDownEvent && this.bindMouseDownEvent(e);
 
 			
 			let bindMouseMoveEvent = (e)=>{
 				if(e.which !=1 ) return false;
-				if(!this.primitiveManager.isDrawing) return;
+				if(!this.annotationManager.isDrawing) return;
 				this.bindMouseMoveEvent && this.bindMouseMoveEvent(e);
 			}
 
 			let bindMouseUpEvent = (e)=>{
 				if(e.which !=1 ) return false;
-				this.primitiveManager.isDrawing = false;
+				this.annotationManager.isDrawing = false;
 				this.bindMouseUpEvent && this.bindMouseUpEvent(e);
 
 				document.removeEventListener('mousemove', bindMouseMoveEvent);
@@ -218,23 +251,23 @@
 
 
 	class TextFactory{
-		constructor(primitiveProps, primitiveManager){
+		constructor(annotationProps, annotationManager){
 			this.name = 'text';
-			this.texts = primitiveProps.texts;
-			this.primitiveManager = primitiveManager;
-			this.x = primitiveProps.x || primitiveProps.left || 0;
-			this.y = primitiveProps.y || primitiveProps.top || 0;
-			this.width = primitiveProps.width;
-			this.height = primitiveProps.height;
-			this.fill = primitiveProps.fill || primitiveProps.color || 'red';
-			this.lineHeight = primitiveProps.lineHeight;
-			this.hoverFill = primitiveProps.hoverFill || primitiveProps.hoverColor || 'green';
-			this.fontSize = primitiveProps.fontSize;
+			this.texts = annotationProps.texts;
+			this.annotationManager = annotationManager;
+			this.x = annotationProps.x || annotationProps.left || 0;
+			this.y = annotationProps.y || annotationProps.top || 0;
+			this.width = annotationProps.width;
+			this.height = annotationProps.height;
+			this.fill = annotationProps.fill || annotationProps.color || 'red';
+			this.lineHeight = annotationProps.lineHeight;
+			this.hoverFill = annotationProps.hoverFill || annotationProps.hoverColor || 'green';
+			this.fontSize = annotationProps.fontSize;
 			this['font-size'] = this.fontSize || 16;
-			this.textTranslate = primitiveProps.textTranslate;
-			this.viewer = primitiveProps.viewer;
+			this.textTranslate = annotationProps.textTranslate;
+			this.viewer = annotationProps.viewer;
 
-			this._style = primitiveProps._style; 
+			this._style = annotationProps._style; 
 
 
 			this.svgRef =null;
@@ -256,7 +289,7 @@
 
 		create(){
 			
-			this.svgRef = new CreateSVG('text', this);
+			this.svgRef = new CreateTag('text', this);
 			this.domRef = this.svgRef.tag;
 			this.updateText();
 
@@ -303,8 +336,8 @@
 		bindClickEvent(){
 			this.domRef.addEventListener('mousedown', e=>{
 				if(e.which != 1) return;
-				this.primitiveManager.currentPrimitive = this;
-				this.primitiveManager.isDrawing = true;
+				this.annotationManager.currentAnnotation = this;
+				this.annotationManager.isDrawing = true;
 				this.createDrapMask();
 				this.viewer.parentNode.style.userSelect = 'none';
 				e.stopPropagation();
@@ -339,11 +372,11 @@
 		
 		//双击编辑
 		bindDoubleClickEvent(){
-			if(!!this.primitive && this.primitive.isWriting) return;
+			if(!!this.annotation && this.annotation.isWriting) return;
 			this.isWriting = true;
 			
-			this.spanRef = new CreateSVG('span', {style:{whiteSpace:'nowrap', visibility:'hidden', fontSize:this.fontSize+'px', border:'1px solid red', fontFamily:'Arial'}}).tag;
-			this.textRef = new CreateSVG('textarea', this.createStyle()).tag;
+			this.spanRef = new CreateTag('span', {style:{whiteSpace:'nowrap', visibility:'hidden', fontSize:this.fontSize+'px', border:'1px solid red', fontFamily:'Arial'}}).tag;
+			this.textRef = new CreateTag('textarea', this.createStyle()).tag;
 
 			this.textRef.value = this.texts.join(' ');
 			this.viewer.parentNode.appendChild(this.textRef);
@@ -497,7 +530,7 @@
 		//消失
 		onDisppear(e){
 			if(e.which != 3) return;
-			this.primitiveManager.isDrawing = false;
+			this.annotationManager.isDrawing = false;
 			this['pointer-events'] = 'inherit';
 			this.svgRef.setAttrs(this);
 			this.drapMaskRef && (this.drapMaskRef.style.display='none');
@@ -515,7 +548,7 @@
 			this.textRef = null;
 			this.spanRef = null;
 			if(!this.texts || (this.texts.length == 1 && !this.texts[0])){
-				this.primitiveManager.primitives.splice(this.primitiveManager.primitives.indexOf(this), 1);
+				this.annotationManager.annotations.splice(this.annotationManager.annotations.indexOf(this), 1);
 				this.domRef.remove();
 				this.domRef = null;
 				this.svgRef = null;
@@ -525,15 +558,26 @@
 	
 	//文本类
 	class Text extends EventController{
-		constructor(viewer, primitiveManager){
-			super(viewer, primitiveManager);
+		constructor(viewer, annotationManager){
+			super(viewer, annotationManager);
 			this.name = 'text';
+			
+			this.size = FontSize.middle;
+			this.initData = null;
+			this.annotationManager = annotationManager;
+			this.annotation = null;
+			this.preventDefault();
+		}
+		
+
+		createAttrs(){
+			console.log(this.size, 'adfasdfaf')
 			this.initData = {
 				viewer:this.viewer,
 				texts:[],
 				textTranslate:[0, 0],
 				color:'red',
-				fontSize:14,
+				fontSize:this.size,
 				hoverColor:'green',
 				lineHeight:'16px',
 				left:0,
@@ -544,17 +588,18 @@
 				style:'',
 				isWriting:false
 			}
-			this.primitiveManager = primitiveManager;
-			this.primitive = null;
-			this.preventDefault();
-		}
-
-		createAttrs(){
 			this.initData.textTranslate = JSON.parse(JSON.stringify(this.initData.textTranslate));
 			this.initData.texts = JSON.parse(JSON.stringify(this.initData.texts));
 			return {...this.initData};
 		}
-
+		
+		/**
+		 * 设置边框大小
+		 * @param {BorderSize} size
+		 */
+		setSize(size){
+			this.size = FontSize[size];
+		}
 
 
 		createStyle(styleObj){
@@ -576,7 +621,7 @@
 			style.border = '1px solid red';
 			style.fontFamily = 'Arial';
 			style.wrap = "hard";
-			this.primitive._style = style;
+			this.annotation._style = style;
 			return {style};
 		}
 
@@ -590,46 +635,46 @@
 		}
 
 		bindMouseDownEvent(e){
-			if(!!this.primitive && this.primitive.isWriting) return;
+			if(!!this.annotation && this.annotation.isWriting) return;
 			let x = e.offsetX;
 			let y = e.offsetY;
-			this.primitive = this.createAttrs();
-			this.primitive.left = x;
-			this.primitive.top = y;
-			this.primitive.isWriting = true;
+			this.annotation = this.createAttrs();
+			this.annotation.left = x;
+			this.annotation.top = y;
+			this.annotation.isWriting = true;
 			
-			this.primitive.spanRef = new CreateSVG('span', {style:{whiteSpace:'nowrap', visibility:'hidden', fontSize:this.primitive.fontSize+'px', border:'1px solid red', fontFamily:'Arial'}}).tag;
+			this.annotation.spanRef = new CreateTag('span', {style:{whiteSpace:'nowrap', visibility:'hidden', fontSize:this.annotation.fontSize+'px', border:'1px solid red', fontFamily:'Arial'}}).tag;
 
-			this.primitive.svgRef = new CreateSVG('textarea', this.createStyle({...this.primitive}));
-			this.primitive.domRef = this.primitive.svgRef.tag;
-			this.viewer.parentNode.appendChild(this.primitive.domRef);
-			this.viewer.parentNode.appendChild(this.primitive.spanRef);
+			this.annotation.svgRef = new CreateTag('textarea', this.createStyle({...this.annotation}));
+			this.annotation.domRef = this.annotation.svgRef.tag;
+			this.viewer.parentNode.appendChild(this.annotation.domRef);
+			this.viewer.parentNode.appendChild(this.annotation.spanRef);
 
 
-			this.preventDefault(this.primitive.domRef);
+			this.preventDefault(this.annotation.domRef);
 			this.bindTextChangEvent();
 			this.bindRightClickEvent();
 		}
 
 		//输入事件
 		bindTextChangEvent(){
-			this.primitive.domRef.oninput = e=>{
+			this.annotation.domRef.oninput = e=>{
 				let value =  e.target.value;
 				let text = '';
-				this.primitive.spanRef.innerHTML = '';
+				this.annotation.spanRef.innerHTML = '';
 				for(let i=0; i< value.length; i++){
 					let val = value.charAt(i);
 					val == ' ' && (val = '\s');
-					this.primitive.spanRef.innerHTML += val;
-					if(this.primitive.spanRef.offsetWidth > this.primitive.width+6){
+					this.annotation.spanRef.innerHTML += val;
+					if(this.annotation.spanRef.offsetWidth > this.annotation.width+6){
 						text += '\#';
 						text += val;
-						this.primitive.spanRef.innerHTML = '';
+						this.annotation.spanRef.innerHTML = '';
 					}else{
 						text += val;
 					}
 				}
-				this.primitive.texts= text.split('\#');
+				this.annotation.texts= text.split('\#');
 			}
 		}
 
@@ -637,18 +682,18 @@
 		bindRightClickEvent(){
 			let rightClick = e=>{
 				if(e.which != 3) return;
-				if(!this.primitive.domRef) return false;
-				this.primitive.isWriting = false;
-				this.primitiveManager.isDrawing = false;
+				if(!this.annotation.domRef) return false;
+				this.annotation.isWriting = false;
+				this.annotationManager.isDrawing = false;
 				
-				this.primitive.domRef.remove();
-				this.primitive.domRef = null;
-				this.primitive.svgRef = null;
+				this.annotation.domRef.remove();
+				this.annotation.domRef = null;
+				this.annotation.svgRef = null;
 
-				if(this.primitive.texts.length < 1 ) return;
-				let primitive = new TextFactory({...this.primitive}, this.primitiveManager);
-				this.primitiveManager.primitives.push(primitive);
-				this.primitiveManager.currentPrimitive = primitive;
+				if(this.annotation.texts.length < 1 ) return;
+				let annotation = new TextFactory({...this.annotation}, this.annotationManager);
+				this.annotationManager.annotations.push(annotation);
+				this.annotationManager.currentAnnotation = annotation;
 				document.removeEventListener('mousedown', rightClick);
 			}
 			document.addEventListener('mousedown', rightClick);
@@ -658,28 +703,28 @@
 
 	//路径创建类
 	class PathFactory{
-		constructor(primitiveProps, primitiveManage){
+		constructor(annotationProps, annotationManage){
 			this.name = 'path';
-			this.viewer = primitiveProps.viewer;
-			this.style = primitiveProps.style;
-			this.hoverStyle = primitiveProps.hoverStyle;
-			this.originx = primitiveProps.originx;
-			this.originy = primitiveProps.originy;
-			this.pathTranslate = primitiveProps.pathTranslate;
-			this.d = primitiveProps.d;
+			this.viewer = annotationProps.viewer;
+			this.style = annotationProps.style;
+			this.hoverStyle = annotationProps.hoverStyle;
+			this.originx = annotationProps.originx;
+			this.originy = annotationProps.originy;
+			this.pathTranslate = annotationProps.pathTranslate;
+			this.d = annotationProps.d;
 			this.svgRef =null;
 			this.domRef =null;
 			this.drapMaskRef = null;
 			this.canDrap = false;
-			this['pointer-events'] = primitiveProps['pointer-events'];
+			this['pointer-events'] = annotationProps['pointer-events'];
 			
-			this.primitiveManager = primitiveManager;
+			this.annotationManager = annotationManager;
 
 			this.create();
 		}
 
 		create(){
-			this.svgRef = new CreateSVG('path', this);
+			this.svgRef = new CreateTag('path', this);
 			this.domRef = this.svgRef.tag;
 			this.viewer.querySelector('g').appendChild(this.svgRef.tag);
 			
@@ -712,8 +757,8 @@
 		bindClickEvent(){
 			this.domRef.addEventListener('mousedown', e=>{
 				if(e.which != 1) return;
-				this.primitiveManager.currentPrimitive = this;
-				this.primitiveManager.isDrawing = true;
+				this.annotationManager.currentAnnotation = this;
+				this.annotationManager.isDrawing = true;
 				this.createDrapMask();
 				e.stopPropagation();
 
@@ -828,7 +873,7 @@
 		//消失
 		onDisppear(e){
 			if(e.which != 3) return;
-			this.primitiveManager.isDrawing = false;
+			this.annotationManager.isDrawing = false;
 			this['pointer-events'] = 'inherit';
 			this.svgRef.setAttrs(this);
 			this.drapMaskRef && (this.drapMaskRef.style.display='none');
@@ -843,14 +888,35 @@
 
 	//路径类
 	class Path extends EventController{
-		constructor(viewer, primitiveManager){
-			super(viewer, primitiveManager);
+		constructor(viewer, annotationManager){
+			super(viewer, annotationManager);
 			this.name = 'path';
 			this.viewer = viewer;
-			this.primitiveManager = primitiveManager;
+			this.annotationManager = annotationManager;
+			
+
+			this.lastx = 0;
+			this.lasty = 0;
+			
+			this.size = BorderSize.middle;
+
+			this.initData = null;
+			this.annotation = null;
+			
+		}
+
+		/**
+		 * 设置边框大小
+		 * @param {BorderSize} size
+		 */
+		setSize(size){
+			this.size = BorderSize[size];
+		}
+
+		createAttrs(){
 			this.initData = {
 				viewer:this.viewer,
-				style:'stroke:red; fill:none; stroke-width:2',
+				style:'stroke:red; fill:none; stroke-width:'+this.size,
 				pathTranslate:[0, 0],
 				pathScale:[1, 1],
 				svgRef:null,
@@ -861,19 +927,10 @@
 				d:'',
 				originx:0,
 				originy:0,
-				hoverStyle:'stroke:green; fill:none; stroke-width:2',
+				hoverStyle:'stroke:green; fill:none; stroke-width:'+this.size,
 			
 				'pointer-events':'all'
 			}
-
-			this.lastx = 0;
-			this.lasty = 0;
-
-			this.primitive = null;
-			
-		}
-
-		createAttrs(){
 			this.initData.pathTranslate = JSON.parse(JSON.stringify(this.initData.pathTranslate));
 			this.initData.pathScale = JSON.parse(JSON.stringify(this.initData.pathScale));
 			return {...this.initData};
@@ -883,18 +940,18 @@
 		bindShiftEvent(){
 			document.addEventListener('keydown', e=>{
 				if(e.which == 16){
-					this.primitive.shift = true;
+					this.annotation.shift = true;
 				}
 				if(e.which == 17){
-					this.primitive.ctrl = true;
+					this.annotation.ctrl = true;
 				}
 			});
 			document.addEventListener('keyup', e=>{
 				if(e.which == 16){
-					this.primitive.shift = false;
+					this.annotation.shift = false;
 				}
 				if(e.which == 17){
-					this.primitive.ctrl = false;
+					this.annotation.ctrl = false;
 				}
 			});
 		}
@@ -902,13 +959,13 @@
 		bindMouseDownEvent(e){
 			let x = e.offsetX;
 			let y = e.offsetY;
-			this.primitive = this.createAttrs();
+			this.annotation = this.createAttrs();
 			this.bindShiftEvent();
-			this.primitive.originx = x;
-			this.primitive.originy = y;
+			this.annotation.originx = x;
+			this.annotation.originy = y;
 			this.lastx = x;
 			this.lasty = y;
-			this.primitive.d = `M${x} ${y}`;
+			this.annotation.d = `M${x} ${y}`;
 		}
 
 		bindMouseMoveEvent(e){
@@ -916,69 +973,69 @@
 			let y = e.offsetY;
 
 			//直线			
-			if(this.primitive.shift && !this.primitive.ctrl){
+			if(this.annotation.shift && !this.annotation.ctrl){
 				y = this.lasty;
 			}
 
-			if(!this.primitive.shift && this.primitive.ctrl){
+			if(!this.annotation.shift && this.annotation.ctrl){
 				x = this.lastx;
 			}
 
 
-			this.primitive.d += this.primitive.d.includes('L') ? ` ${x} ${y}` : ` L${x} ${y}`;
+			this.annotation.d += this.annotation.d.includes('L') ? ` ${x} ${y}` : ` L${x} ${y}`;
 
-			if(!this.primitive.svgRef){
-				this.primitive.svgRef = new CreateSVG('path', this.primitive);
-				this.primitive.domRef = this.primitive.svgRef.tag;
-				this.viewer.querySelector('g').appendChild(this.primitive.domRef);
+			if(!this.annotation.svgRef){
+				this.annotation.svgRef = new CreateTag('path', this.annotation);
+				this.annotation.domRef = this.annotation.svgRef.tag;
+				this.viewer.querySelector('g').appendChild(this.annotation.domRef);
 			}
 
 			this.lastx = x;
 			this.lasty = y;
-			this.primitive.svgRef && this.primitive.svgRef.setAttrs(this.primitive);
+			this.annotation.svgRef && this.annotation.svgRef.setAttrs(this.annotation);
 		}
 
 		//抬起鼠标
 		bindMouseUpEvent(){
-			if(!this.primitive.svgRef) return false;
-			this.primitive.domRef.remove();
-			this.primitive.domRef = null;
-			this.primitive.svgRef = null;
-			let primitive = new PathFactory({...this.primitive}, this.primitiveManager);
-			this.primitiveManager.primitives.push(primitive);
-			this.primitiveManager.currentPrimitive = primitive
+			if(!this.annotation.svgRef) return false;
+			this.annotation.domRef.remove();
+			this.annotation.domRef = null;
+			this.annotation.svgRef = null;
+			let annotation = new PathFactory({...this.annotation}, this.annotationManager);
+			this.annotationManager.annotations.push(annotation);
+			this.annotationManager.currentAnnotation = annotation
 		}
 	}
 
 	//椭圆创建类
 	class EllipseFactory{
-		constructor(primitiveProps, primitiveManage){
+		constructor(annotationProps, annotationManage){
 			this.name = 'ellipse';
-			this.viewer = primitiveProps.viewer;
-			this.style = primitiveProps.style;
-			this.hoverStyle = primitiveProps.hoverStyle;
-			this.cx = primitiveProps.cx;
-			this.cy = primitiveProps.cy;
-			this.rx = primitiveProps.rx;
-			this.ry = primitiveProps.ry;
-			this.originx = primitiveProps.originx;
-			this.originy = primitiveProps.originy;
-			this.ellipseTranslate = primitiveProps.ellipseTranslate;
+			this.viewer = annotationProps.viewer;
+			this.style = annotationProps.style;
+			this.hoverStyle = annotationProps.hoverStyle;
+			this.cx = annotationProps.cx;
+			this.cy = annotationProps.cy;
+			this.rx = annotationProps.rx;
+			this.ry = annotationProps.ry;
+			this.originx = annotationProps.originx;
+			this.originy = annotationProps.originy;
+			this.ellipseTranslate = annotationProps.ellipseTranslate;
 			this.svgRef =null;
 			this.domRef =null;
 			this.drapMaskRef = null;
 			this.canDrap = false;
-			this.shift = primitiveProps.shift;
-			this['pointer-events'] = primitiveProps['pointer-events'];
+			this.shift = annotationProps.shift;
+			this['pointer-events'] = annotationProps['pointer-events'];
 			
-			this.primitiveManager = primitiveManager;
+			this.annotationManager = annotationManager;
 
 			this.controllerPoints = [];
 			this.create();
 		}
 
 		create(){
-			this.svgRef = new CreateSVG('ellipse', this);
+			this.svgRef = new CreateTag('ellipse', this);
 			this.domRef = this.svgRef.tag;
 			this.viewer.querySelector('g').appendChild(this.svgRef.tag);
 			
@@ -1023,8 +1080,8 @@
 		bindClickEvent(){
 			this.domRef.addEventListener('mousedown', e=>{
 				if(e.which != 1) return;
-				this.primitiveManager.currentPrimitive = this;
-				this.primitiveManager.isDrawing = true;
+				this.annotationManager.currentAnnotation = this;
+				this.annotationManager.isDrawing = true;
 				this.createDrapMask();
 				e.stopPropagation();
 
@@ -1185,7 +1242,7 @@
 
 			point.onmousedown = e=>{
 				
-				if(e.which !=1 || !this.primitiveManager.isDrawing) return;
+				if(e.which !=1 || !this.annotationManager.isDrawing) return;
 				
 				//点击坐标
 				let ox = e.clientX;
@@ -1427,7 +1484,7 @@
 		//消失
 		onDisppear(e){
 			if(e.which != 3) return;
-			this.primitiveManager.isDrawing = false;
+			this.annotationManager.isDrawing = false;
 			this['pointer-events'] = 'inherit';
 			this.svgRef.setAttrs(this);
 			this.drapMaskRef && (this.drapMaskRef.style.display='none');
@@ -1442,20 +1499,22 @@
 
 	//椭圆类
 	class Ellipse extends EventController{
-		constructor(viewer, primitiveManager){
-			super(viewer, primitiveManager);
+		constructor(viewer, annotationManager){
+			super(viewer, annotationManager);
 			this.name = 'ellipse';
 			this.viewer = viewer;
-			this.primitiveManager = primitiveManager;
+			this.annotationManager = annotationManager;
+
+			this.size = BorderSize.middle;
 			this.initData = {
 				viewer:this.viewer,
-				style:'stroke:red; fill:none; stroke-width:5',
+				style:'stroke:red; fill:none; stroke-width:'+this.size,
 				ellipseTranslate:[0, 0],
 				svgRef:null,
 				domRef:null,
 				shift:false,
 				canDrap:false,
-				hoverStyle:'stroke:green; fill:none; stroke-width:5',
+				hoverStyle:'stroke:green; fill:none; stroke-width:'+this.size,
 				cx:0,
 				cy:0,
 				rx:0,
@@ -1464,39 +1523,64 @@
 				originy:0,
 				'pointer-events':'all'
 			}
-
-			this.primitive = null;
+			this.initData = null;
+			this.annotation = null;
 			
 		}
 
 		createAttrs(){
+			this.initData = {
+				viewer:this.viewer,
+				style:'stroke:red; fill:none; stroke-width:'+this.size,
+				ellipseTranslate:[0, 0],
+				svgRef:null,
+				domRef:null,
+				shift:false,
+				canDrap:false,
+				hoverStyle:'stroke:green; fill:none; stroke-width:'+this.size,
+				cx:0,
+				cy:0,
+				rx:0,
+				ry:0,
+				originx:0,
+				originy:0,
+				'pointer-events':'all'
+			}
 			this.initData.ellipseTranslate = JSON.parse(JSON.stringify(this.initData.ellipseTranslate))
 			return {...this.initData};
+		}
+
+		/**
+		 * 设置边框大小
+		 * @param {BorderSize} size
+		 */
+		setSize(size){
+			this.size = BorderSize[size];
 		}
 
 		//shift绑定
 		bindShiftEvent(){
 			document.addEventListener('keydown', e=>{
 				if(e.which == 16){
-					this.primitive.shift = true;
+					this.annotation.shift = true;
 				}
 			});
 			document.addEventListener('keyup', e=>{
 				if(e.which == 16){
-					this.primitive.shift = false;
+					this.annotation.shift = false;
 				}
 			});
 		}
 
 		bindMouseDownEvent(e){
-			this.primitive = this.createAttrs();
+			this.annotation = this.createAttrs();
 			this.bindShiftEvent();
 			let x = e.clientX;
 			let y = e.clientY;
-			this.primitive.cx = x;
-			this.primitive.cy = y;
-			this.primitive.originx = x;
-			this.primitive.originy = y;
+			this.annotation.cx = x;
+			this.annotation.cy = y;
+			this.annotation.originx = x;
+			this.annotation.originy = y;
 			
 		}
 
@@ -1520,91 +1604,91 @@
 			let absy = 0;
 			let abs = 0;
 
-			absx = Math.abs(x - this.primitive.originx);
-			absy = Math.abs(y - this.primitive.originy);
+			absx = Math.abs(x - this.annotation.originx);
+			absy = Math.abs(y - this.annotation.originy);
 			abs = Math.max(absy, absx);
-			if(this.primitive.shift) absx = absy = abs;
+			if(this.annotation.shift) absx = absy = abs;
 
 			//右边
-			if(x > this.primitive.originx){
+			if(x > this.annotation.originx){
 
 				//上
-				if(y > this.primitive.originy){
-					this.primitive.cx = this.primitive.originx + absx/2;
-					this.primitive.cy = this.primitive.originy + absy/2;
+				if(y > this.annotation.originy){
+					this.annotation.cx = this.annotation.originx + absx/2;
+					this.annotation.cy = this.annotation.originy + absy/2;
 				//下
 				}else{
-					this.primitive.cx = this.primitive.originx + absx/2;
-					this.primitive.cy = this.primitive.originy - absy/2;
+					this.annotation.cx = this.annotation.originx + absx/2;
+					this.annotation.cy = this.annotation.originy - absy/2;
 				}
 			}
 
 			//左边
-			if(x < this.primitive.originx){
+			if(x < this.annotation.originx){
 				//下边
-				if(y > this.primitive.originy){
-					this.primitive.cx = this.primitive.originx - absx/2;
-					this.primitive.cy = this.primitive.originy + absy/2;
+				if(y > this.annotation.originy){
+					this.annotation.cx = this.annotation.originx - absx/2;
+					this.annotation.cy = this.annotation.originy + absy/2;
 
 				//上边
 				}else{
-					this.primitive.cx = this.primitive.originx - absx/2;
-					this.primitive.cy = this.primitive.originy - absy/2;
+					this.annotation.cx = this.annotation.originx - absx/2;
+					this.annotation.cy = this.annotation.originy - absy/2;
 				}
 			}
 
-			if(absx > 4 && absy > 4 && !this.primitive.svgRef){
-				this.primitive.svgRef = new CreateSVG('ellipse', this.primitive);
-				this.primitive.domRef = this.primitive.svgRef.tag;
-				this.viewer.appendChild(this.primitive.domRef);
+			if(absx > 4 && absy > 4 && !this.annotation.svgRef){
+				this.annotation.svgRef = new CreateTag('ellipse', this.annotation);
+				this.annotation.domRef = this.annotation.svgRef.tag;
+				this.viewer.appendChild(this.annotation.domRef);
 			}
 
-			this.primitive.rx = absx/2;
-			this.primitive.ry = absy/2;
-			this.primitive.svgRef && this.primitive.svgRef.setAttrs(this.primitive);
+			this.annotation.rx = absx/2;
+			this.annotation.ry = absy/2;
+			this.annotation.svgRef && this.annotation.svgRef.setAttrs(this.annotation);
 		}
 
 
 		//抬起鼠标
 		bindMouseUpEvent(){
-			if(!this.primitive.svgRef) return false;
-			this.primitive.domRef.remove();
-			this.primitive.domRef = null;
-			this.primitive.svgRef = null;
-			let primitive = new EllipseFactory({...this.primitive}, this.primitiveManager);
-			this.primitiveManager.primitives.push(primitive);
-			this.primitiveManager.currentPrimitive = primitive
+			if(!this.annotation.svgRef) return false;
+			this.annotation.domRef.remove();
+			this.annotation.domRef = null;
+			this.annotation.svgRef = null;
+			let annotation = new EllipseFactory({...this.annotation}, this.annotationManager);
+			this.annotationManager.annotations.push(annotation);
+			this.annotationManager.currentAnnotation = annotation
 		}
 	}
 
 	class RectangleFactory{
-		constructor(primitiveProps, primitiveManager){
+		constructor(annotationProps, annotationManager){
 			this.name = 'rectancle';
-			this.viewer = primitiveProps.viewer;
-			this.style = primitiveProps.style;
-			this.hoverStyle = primitiveProps.hoverStyle;
-			this.x = primitiveProps.x;
-			this.y = primitiveProps.y;
-			this.originx = primitiveProps.originx;
-			this.originy = primitiveProps.originy;
-			this.width = primitiveProps.width;
-			this.height = primitiveProps.height;
-			this.rectTranslate = primitiveProps.rectTranslate;
+			this.viewer = annotationProps.viewer;
+			this.style = annotationProps.style;
+			this.hoverStyle = annotationProps.hoverStyle;
+			this.x = annotationProps.x;
+			this.y = annotationProps.y;
+			this.originx = annotationProps.originx;
+			this.originy = annotationProps.originy;
+			this.width = annotationProps.width;
+			this.height = annotationProps.height;
+			this.rectTranslate = annotationProps.rectTranslate;
 			this.svgRef =null;
 			this.domRef =null;
 			this.drapMaskRef = null;
 			this.canDrap = false;
-			this.shift = primitiveProps.shift;
-			this['pointer-events'] = primitiveProps['pointer-events'];
+			this.shift = annotationProps.shift;
+			this['pointer-events'] = annotationProps['pointer-events'];
 			
-			this.primitiveManager = primitiveManager;
+			this.annotationManager = annotationManager;
 
 			this.controllerPoints = [];
 			this.create();
 		}
 
 		create(){
-			this.svgRef = new CreateSVG('rect', this);
+			this.svgRef = new CreateTag('rect', this);
 			this.domRef = this.svgRef.tag;
 			this.viewer.querySelector('g').appendChild(this.svgRef.tag);
 			
@@ -1644,8 +1728,8 @@
 		bindClickEvent(){
 			this.domRef.addEventListener('mousedown', e=>{
 				if(e.which != 1) return;
-				this.primitiveManager.currentPrimitive = this;
-				this.primitiveManager.isDrawing = true;
+				this.annotationManager.currentAnnotation = this;
+				this.annotationManager.isDrawing = true;
 				this.createDrapMask();
 				e.stopPropagation();
 
@@ -1778,7 +1862,7 @@
 
 			point.onmousedown = e=>{
 				
-				if(e.which !=1 || !this.primitiveManager.isDrawing) return;
+				if(e.which !=1 || !this.annotationManager.isDrawing) return;
 				
 				//点击坐标
 				let ox = e.clientX;
@@ -2041,7 +2125,7 @@
 		//消失
 		onDisppear(e){
 			if(e.which != 3) return;
-			this.primitiveManager.isDrawing = false;
+			this.annotationManager.isDrawing = false;
 			this['pointer-events'] = 'inherit';
 			this.svgRef.setAttrs(this);
 			this.drapMaskRef && (this.drapMaskRef.style.display='none');
@@ -2057,15 +2141,30 @@
 
 	//矩形类
 	class Rectangle extends EventController{
-		constructor(viewer, primitiveManager){
+		constructor(viewer, annotationManager){
 			
-			super(viewer, primitiveManager);
+			super(viewer, annotationManager);
 			this.name = 'rectancle';
 			this.viewer = viewer;
-			this.primitiveManager = primitiveManager;
+			this.annotationManager = annotationManager;
+			this.size = BorderSize.middle;
+			this.initData = null;
+			this.annotation = null;
+			
+		}
+		
+		/**
+		 * 设置边框大小
+		 * @param {BorderSize} size
+		 */
+		setSize(size){
+			this.size = BorderSize[size];
+		}
+
+		createAttrs(){
 			this.initData = {
 				viewer:this.viewer,
-				style:'stroke:red; fill:none; stroke-width:5',
+				style:'stroke:red; fill:none; stroke-width:'+this.size,
 				x:0,
 				y:0,
 				originx:0,
@@ -2077,15 +2176,10 @@
 				domRef:null,
 				shift:false,
 				canDrap:false,
-				hoverStyle:'stroke:green; fill:none; stroke-width:5',
+				hoverStyle:'stroke:green; fill:none; stroke-width:'+this.size,
 				'pointer-events':'all'
 			}
 
-			this.primitive = null;
-			
-		}
-
-		createAttrs(){
 			this.initData.rectTranslate = JSON.parse(JSON.stringify(this.initData.rectTranslate))
 			return {...this.initData};
 		}
@@ -2093,24 +2187,24 @@
 		bindMouseDownEvent(e){
 			let x = e.clientX;
 			let y = e.clientY;
-			this.primitive = this.createAttrs();
+			this.annotation = this.createAttrs();
 			this.bindShiftEvent();
-			this.primitive.x = x;
-			this.primitive.y = y;
-			this.primitive.originx = x;
-			this.primitive.originy = y;
+			this.annotation.x = x;
+			this.annotation.y = y;
+			this.annotation.originx = x;
+			this.annotation.originy = y;
 		}
 		
 		//shift绑定
 		bindShiftEvent(){
 			document.addEventListener('keydown', e=>{
 				if(e.which == 16){
-					this.primitive.shift = true;
+					this.annotation.shift = true;
 				}
 			});
 			document.addEventListener('keyup', e=>{
 				if(e.which == 16){
-					this.primitive.shift = false;
+					this.annotation.shift = false;
 				}
 			});
 		}
@@ -2118,113 +2212,115 @@
 		bindMouseMoveEvent(e){
 			let x = e.clientX;
 			let y = e.clientY;
-			let absy = Math.abs(y-this.primitive.originy);
-			let absx = Math.abs(x-this.primitive.originx);
+			let absy = Math.abs(y-this.annotation.originy);
+			let absx = Math.abs(x-this.annotation.originx);
 			let abs = Math.max(absy, absx);
 
 			//右边
-			if(x > this.primitive.originx){
+			if(x > this.annotation.originx){
 
 				//下边
-				if(y > this.primitive.originy){
-					this.primitive.y = this.primitive.originy;
-					this.primitive.x = this.primitive.originx;
+				if(y > this.annotation.originy){
+					this.annotation.y = this.annotation.originy;
+					this.annotation.x = this.annotation.originx;
 
 				//上边
 				}else{
-					this.primitive.y = this.primitive.originy-(this.primitive.shift ? abs : absy);
-					this.primitive.x = this.primitive.originx;
+					this.annotation.y = this.annotation.originy-(this.annotation.shift ? abs : absy);
+					this.annotation.x = this.annotation.originx;
 				}
 			}
 
 			//左边
-			if(x < this.primitive.originx){
+			if(x < this.annotation.originx){
 
 				//下边
-				if(y > this.primitive.originy){
-					this.primitive.x = this.primitive.originx-(this.primitive.shift ? abs : absx);
-					this.primitive.y = this.primitive.originy;
+				if(y > this.annotation.originy){
+					this.annotation.x = this.annotation.originx-(this.annotation.shift ? abs : absx);
+					this.annotation.y = this.annotation.originy;
 
 				//上边
 				}else{
 					
-					this.primitive.x = this.primitive.originx-(this.primitive.shift ? abs : absx);
-					this.primitive.y = this.primitive.originy-(this.primitive.shift ? abs : absy);
+					this.annotation.x = this.annotation.originx-(this.annotation.shift ? abs : absx);
+					this.annotation.y = this.annotation.originy-(this.annotation.shift ? abs : absy);
 
 				}
 			}
 
 			
-			this.primitive.height = absy;
-			this.primitive.width = absx;
-			if(this.primitive.shift){
-				this.primitive.height = Math.max(absy, absx);
-				this.primitive.width = Math.max(absy, absx);
+			this.annotation.height = absy;
+			this.annotation.width = absx;
+			if(this.annotation.shift){
+				this.annotation.height = Math.max(absy, absx);
+				this.annotation.width = Math.max(absy, absx);
 			}
-			if(absy > 4 && absx > 4 && !this.primitive.svgRef){
-				this.primitive.svgRef = new CreateSVG('rect', this.primitive);
-				this.primitive.domRef = this.primitive.svgRef.tag;
-				this.viewer.querySelector('g').appendChild(this.primitive.svgRef.tag);
+			if(absy > 4 && absx > 4 && !this.annotation.svgRef){
+				this.annotation.svgRef = new CreateTag('rect', this.annotation);
+				this.annotation.domRef = this.annotation.svgRef.tag;
+				this.viewer.querySelector('g').appendChild(this.annotation.svgRef.tag);
 				return;
 			}
 			
-			this.primitive.svgRef && this.primitive.svgRef.setAttrs(this.primitive);
+			this.annotation.svgRef && this.annotation.svgRef.setAttrs(this.annotation);
 		}
 
 		bindMouseUpEvent(){
-			if(!this.primitive.svgRef) return false;
-			this.primitive.domRef.remove();
-			this.primitive.domRef = null;
-			this.primitive.svgRef = null;
-			let primitive = new RectangleFactory({...this.primitive}, this.primitiveManager);
-			this.primitiveManager.primitives.push(primitive);
-			this.primitiveManager.currentPrimitive = primitive
+			if(!this.annotation.svgRef) return false;
+			this.annotation.domRef.remove();
+			this.annotation.domRef = null;
+			this.annotation.svgRef = null;
+			let annotation = new RectangleFactory({...this.annotation}, this.annotationManager);
+			this.annotationManager.annotations.push(annotation);
+			this.annotationManager.currentAnnotation = annotation
 		}
 	}
 
 	
 	//通过参数重新构造箭头
 	class ArrowFactory{
-		constructor(primitiveProps, primitiveManager){
+		constructor(annotationProps, annotationManager){
 			
 			this.name = 'arrow';
-			this.initData = JSON.parse(JSON.stringify(primitiveProps.initData));
-			this.hoverStyle = primitiveProps.hoverStyle;
-			this.style = primitiveProps.style;
-			this.points = JSON.parse(JSON.stringify(primitiveProps.points));
+			this.initData = JSON.parse(JSON.stringify(annotationProps.initData));
+			this.hoverStyle = annotationProps.hoverStyle;
+			this.style = annotationProps.style;
+			this.points = JSON.parse(JSON.stringify(annotationProps.points));
 
-			this.worldTranslate = JSON.parse(JSON.stringify(primitiveProps.worldTranslate));
-			this.arrowTranslate = JSON.parse(JSON.stringify(primitiveProps.arrowTranslate));
-			this.arrowLeftRotate = primitiveProps.arrowLeftRotate;
-			this.arrowRightRotate = primitiveProps.arrowRightRotate;
+			this.worldTranslate = JSON.parse(JSON.stringify(annotationProps.worldTranslate));
+			this.arrowTranslate = JSON.parse(JSON.stringify(annotationProps.arrowTranslate));
+			this.arrowLeftRotate = annotationProps.arrowLeftRotate;
+			this.arrowRightRotate = annotationProps.arrowRightRotate;
 
 			//箭头dom
 			this.domRef = null;
 			this.svgRef = null;
 
 			//拖拽对象，非dom
-			this.arrowOrigin = JSON.parse(JSON.stringify(primitiveProps.arrowOrigin));
-			this.ox = primitiveProps.ox;//箭头起始点世界坐标x
-			this.oy = primitiveProps.oy;//箭头起始点世界坐标y
-			this.dx = primitiveProps.dx;//箭头终点世界坐标x
-			this.dy = primitiveProps.dy;//箭头终点世界坐标
-			this.width = primitiveProps.width;
-			this.height = primitiveProps.height;
-			this.canDrap = primitiveProps.canDrap;
-			this.isDrawing = primitiveProps.isDrawing;
-			this['pointer-events'] = primitiveProps['pointer-events'];
+			this.arrowOrigin = JSON.parse(JSON.stringify(annotationProps.arrowOrigin));
+			console.log(this.arrowOrigin)
+
+			this.ox = annotationProps.ox;//箭头起始点世界坐标x
+			this.oy = annotationProps.oy;//箭头起始点世界坐标y
+			this.dx = annotationProps.dx;//箭头终点世界坐标x
+			this.dy = annotationProps.dy;//箭头终点世界坐标
+			this.width = annotationProps.width;
+			this.height = annotationProps.height;
+			this.canDrap = annotationProps.canDrap;
+			this.isDrawing = annotationProps.isDrawing;
+			this['pointer-events'] = annotationProps['pointer-events'];
 
 
 
 
-			this.primitiveManager = primitiveManager;
-			this.viewer = primitiveProps.viewer;
+			this.annotationManager = annotationManager;
+			this.viewer = annotationProps.viewer;
 			this.create();
 		}
 
 		//创建
 		create(){
-			this.svgRef = new CreateSVG('polygon', this);
+			this.svgRef = new CreateTag('polygon', this);
 			this.canDrap = false;
 
 			//保存引用
@@ -2234,6 +2330,7 @@
 			this.bindHoverEvent();
 			this.bindClickEvent();
 			this.preventDefault();
+			this.bindDirectionEvent();
 		}
 
 		//绑定hover事件
@@ -2250,13 +2347,45 @@
 		bindClickEvent(){
 			this.domRef.addEventListener('mousedown', e=>{
 				if(e.which != 1) return;
-				this.primitiveManager.currentPrimitive = this;
-				this.primitiveManager.isDrawing = true;
+				this.annotationManager.currentAnnotation = this;
+				this.annotationManager.isDrawing = true;
 				this.createDrapMask();
 				e.stopPropagation();
 
 				this.viewer.parentNode.style.userSelect = 'none';
 			});
+		}
+
+		//方向调整
+		bindDirectionEvent(){
+			document.addEventListener('keydown', e=>{
+				if(e.which == 37){
+					this.arrowTranslate[0] -= 1;
+					this.upateAll();
+				}
+				if(e.which == 38){
+					this.arrowTranslate[1] -= 1;
+					this.upateAll();
+				}
+				if(e.which == 39){
+					this.arrowTranslate[0] += 1;
+					this.upateAll();
+				}
+				if(e.which == 40){
+					this.arrowTranslate[1] += 1;
+					this.upateAll();
+				}
+				
+			});
+		}
+
+		upateAll(){
+			this.worldTranslate[0] += this.arrowTranslate[0]; 
+			this.worldTranslate[1] += this.arrowTranslate[1]; 
+			this.arrowTranslate[0] = this.arrowTranslate[1] = 0; 
+			this.svgRef.setAttrs(this);
+			this.updateDrapMask('all');
+
 		}
 
 
@@ -2364,7 +2493,7 @@
 			}
 
 			point.onmousedown = e=>{
-				if(e.which !=1 || !this.primitiveManager.isDrawing) return;
+				if(e.which !=1 || !this.annotationManager.isDrawing) return;
 
 				let mouseup = e=>{
 					this.drapMaskRef.style['pointer-events'] = 'all';
@@ -2449,7 +2578,7 @@
 		//消失
 		onDisppear(e){
 			if(e.which != 3) return;
-			this.primitiveManager.isDrawing = false;
+			this.annotationManager.isDrawing = false;
 			this['pointer-events'] = 'inherit';
 			this.svgRef.setAttrs(this);
 			this.drapMaskRef && (this.drapMaskRef.style.display='none');
@@ -2460,13 +2589,29 @@
 			this.viewer.parentNode.style.userSelect = 'initial';
 		}
 	}
+	
+	const BorderSize = {
+		small:2,
+		middle:4,
+		large:6
+	}
+	const ArrowSize = {
+		small:8,
+		middle:10,
+		large:12
+	}
 
+	const FontSize = {
+		small:12,
+		middle:14,
+		large:16
+	}
 	
 	//绘制箭头
 	class Arrow extends EventController{
-		constructor(viewer, primitiveManager){
-			super(viewer, primitiveManager);
-			this.primitiveManager = primitiveManager;
+		constructor(viewer, annotationManager){
+			super(viewer, annotationManager);
+			this.annotationManager = annotationManager;
 
 			this.name = 'arrow';
 
@@ -2480,27 +2625,45 @@
 			/*	          	  B				*/
 			/********************************/
 
-			let initY = 10;
-			let initX = 16;
-			let initH = 20;
-			let cornABX = 12;
-			let cornCDX = 10;	
-			let PO1 = [0, initY-1];
-			let PO2 = [0, initY+1];
-			let PX = [initX, initY];
-			let PA = [initX-12, 0];
-			let PB = [initX-12, initH];
-			let PC = [initX-10, 7];
-			let PD = [initX-10, initH-7];
+
+			this.initY = ArrowSize.large;
+
+			
+
+			
+			this.annotation = null;
+		}
+		
+		/**
+		 * 设置大小
+		 * @param {ArrowSize} size
+		 */
+		setSize(size){
+			this.initY = ArrowSize[size];
+		}
+		
+		//初始化属性
+		createAttrs(){
+			let initX = 16;//固定
+			let initH = this.initY*2;
+			let cornABX = this.initY+2;
+			let cornCDX = this.initY-2;	
+			let PO1 = [0, this.initY-1];
+			let PO2 = [0, this.initY+1];
+			let PX = [initX, this.initY];
+			let PA = [initX-cornABX, 0];
+			let PB = [initX-cornABX, initH];
+			let PC = [initX-cornCDX, 7];
+			let PD = [initX-cornCDX, initH-7];
 			let initPoints = [PO1, PC, PA, PX, PB, PD, PO2];
 			let initWorldTranslate = [0, 0];
 			let initArrowTranslate = [0, 0];
-			let initArrowOrigin = [0, initY];
+			let initArrowOrigin = [0, this.initY];
 
 
 			this.initData = {
 				initX:initX,
-				initY:initY,
+				initY:this.initY,
 				cornABX:cornABX,
 				cornCDX:cornCDX,
 				points:initPoints,
@@ -2510,15 +2673,6 @@
 				width:initX,
 				height:initH,
 			}
-
-			
-			this.primitive = null;
-		}
-
-
-		
-		//初始化属性
-		createAttrs(){
 			return {
 				viewer:this.viewer,
 				initData:JSON.parse(JSON.stringify(this.initData)),
@@ -2531,13 +2685,14 @@
 
 				//模型坐标移动
 				arrowTranslate:JSON.parse(JSON.stringify(this.initData.arrowTranslate)),
+
 				arrowLeftRotate:360,
 				arrowRightRotate:360,
 
 				//箭头dom
 				domRef:null,
 
-				//CreateSVG
+				//CreateTag
 				svgRef:null,
 
 				//拖拽对象，非dom
@@ -2556,52 +2711,52 @@
 		
 		//绘制按下鼠标左键
 		bindMouseDownEvent(e){
-			this.primitive = this.createAttrs();
-			this.primitive.ox = e.clientX;
-			this.primitive.oy = e.clientY- this.initData.initY;
-			this.primitive.worldTranslate = [this.primitive.ox, this.primitive.oy];
+			this.annotation = this.createAttrs();
+			this.annotation.ox = e.clientX;
+			this.annotation.oy = e.clientY- this.initData.initY;
+			this.annotation.worldTranslate = [this.annotation.ox, this.annotation.oy];
 		}
 		
 		
 		//绘制按下鼠标左键后移动
 		bindMouseMoveEvent(e){
-			let x = e.clientX - this.primitive.ox;
-			let y = e.clientY- this.primitive.oy - this.initData.initY;
+			let x = e.clientX - this.annotation.ox - this.initData.initX/2;
+			let y = e.clientY- this.annotation.oy - this.initData.initY*2;
 
-			this.primitive.dx = e.clientX;
-			this.primitive.dy = e.clientY;
+			this.annotation.dx = e.clientX;
+			this.annotation.dy = e.clientY;
 
 			//勾股定理
 			let newX = Math.sqrt(Math.pow(x, 2) + Math.pow(y, 2));
 			
 			//当长度小于最小值
-			if(newX > this.initData.initX && !this.primitive.svgRef){
-				this.primitive.svgRef = new CreateSVG('polygon', this.primitive);
+			if(newX > this.initData.initX && !this.annotation.svgRef){
+				this.annotation.svgRef = new CreateTag('polygon', this.annotation);
 
-				this.primitive.canDrap = false;
+				this.annotation.canDrap = false;
 
 				//保存引用
-				this.primitive.domRef = this.primitive.svgRef.tag;
-				this.viewer.querySelector('g').appendChild(this.primitive.svgRef.tag);
+				this.annotation.domRef = this.annotation.svgRef.tag;
+				this.viewer.querySelector('g').appendChild(this.annotation.svgRef.tag);
 			}
 
 			if(newX < this.initData.initX) newX = this.initData.initX;
 
 			
 
-			this.primitive.width = newX;
+			this.annotation.width = newX;
 
 			//只修改x值，也就是修改长度
-			this.primitive.points[3][0] = newX;
-			this.primitive.points[1][0] = newX-this.initData.cornCDX;
-			this.primitive.points[2][0] = newX-this.initData.cornABX;
-			this.primitive.points[4][0] = newX-this.initData.cornABX;
-			this.primitive.points[5][0] = newX-this.initData.cornCDX;
+			this.annotation.points[3][0] = newX;
+			this.annotation.points[1][0] = newX-this.initData.cornCDX;
+			this.annotation.points[2][0] = newX-this.initData.cornABX;
+			this.annotation.points[4][0] = newX-this.initData.cornABX;
+			this.annotation.points[5][0] = newX-this.initData.cornCDX;
 
 			
 			//定义向量，求夹角		
 			let newVector = [x, y];
-			let oldVector = [this.primitive.ox, 0];
+			let oldVector = [this.annotation.ox, 0];
 
 			let angle = angleVector2d(newVector, oldVector);
 			let newRotate = angle*180/Math.PI;
@@ -2610,35 +2765,35 @@
 			if(newRotate < 2) newRotate = 0;
 			
 			//当鼠标移动到初始箭头上方时
-			if(e.clientY < this.primitive.oy + this.primitive.arrowTranslate[1]){
+			if(e.clientY < this.annotation.oy + this.annotation.arrowTranslate[1]){
 				newRotate = 360 - newRotate;
 			}
 
 			//自动吸附
 			if(newRotate < 182 && newRotate > 178) newRotate = 180;
 			
-			this.primitive.arrowRightRotate = newRotate;
-			this.primitive.svgRef && this.primitive.svgRef.setAttrs(this.primitive);
+			this.annotation.arrowRightRotate = newRotate;
+			this.annotation.svgRef && this.annotation.svgRef.setAttrs(this.annotation);
 		}
 		
 		//释放鼠标左键
 		bindMouseUpEvent(e){
-			if(!this.primitive.svgRef) return false;
-			this.primitive.domRef.remove();
-			this.primitive.domRef = null;
-			this.primitive.svgRef = null;
-			let primitive = new ArrowFactory({...this.primitive}, this.primitiveManager);
-			this.primitiveManager.primitives.push(primitive);
-			this.primitiveManager.currentPrimitive = primitive;
+			if(!this.annotation.svgRef) return false;
+			this.annotation.domRef.remove();
+			this.annotation.domRef = null;
+			this.annotation.svgRef = null;
+			let annotation = new ArrowFactory({...this.annotation}, this.annotationManager);
+			this.annotationManager.annotations.push(annotation);
+			this.annotationManager.currentAnnotation = annotation;
 		}
 
 	}
-	window.primitiveManager = new PrimitiveManager();
-	let text = new Text(svg, primitiveManager);
-	let path = new Path(svg, primitiveManager);
-	let ellipse = new Ellipse(svg, primitiveManager);
-	let rectancle = new Rectangle(svg, primitiveManager);
-	let arrow = new Arrow(svg, primitiveManager);
+	window.annotationManager = new AnnotationManager();
+	let text = new Text(svg, annotationManager);
+	let path = new Path(svg, annotationManager);
+	let ellipse = new Ellipse(svg, annotationManager);
+	let rectancle = new Rectangle(svg, annotationManager);
+	let arrow = new Arrow(svg, annotationManager);
 
 	let tools = [text, path, ellipse, rectancle, arrow];
 	
@@ -2660,10 +2815,20 @@
 	setTool(arrow);
 
 	document.getElementById('clear').onclick = ()=>{
-		primitiveManager.primitives.forEach(item=>{
+		annotationManager.annotations.forEach(item=>{
 			item.domRef.remove();
 			item = null;
 		})
 	}
+	
+	let setSize = size=>{
+		document.getElementById(size).onclick =()=>{
+			text.setSize(size);
+		};
+	}
+	setSize('small')
+	setSize('middle')
+	setSize('large')
+
 	
 </script>
