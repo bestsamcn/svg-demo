@@ -2470,25 +2470,25 @@
 			document.addEventListener('keydown', e=>{
 				if(e.which == 37){
 					this.arrowTranslate[0] -= 1;
-					this.upateAll();
+					this.updateAll();
 				}
 				if(e.which == 38){
 					this.arrowTranslate[1] -= 1;
-					this.upateAll();
+					this.updateAll();
 				}
 				if(e.which == 39){
 					this.arrowTranslate[0] += 1;
-					this.upateAll();
+					this.updateAll();
 				}
 				if(e.which == 40){
 					this.arrowTranslate[1] += 1;
-					this.upateAll();
+					this.updateAll();
 				}
 				
 			});
 		}
 
-		upateAll(){
+		updateAll(){
 			this.worldTranslate[0] += this.arrowTranslate[0]; 
 			this.worldTranslate[1] += this.arrowTranslate[1]; 
 			this.arrowTranslate[0] = this.arrowTranslate[1] = 0; 
